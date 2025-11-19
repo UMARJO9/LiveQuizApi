@@ -17,11 +17,10 @@ Including another URLconf
 from django.contrib import admin
 from django.urls import path
 from django.views.generic import TemplateView
+from django.http import JsonResponse
 from rest_framework.schemas import get_schema_view
 from rest_framework import permissions
 from rest_framework.renderers import JSONOpenAPIRenderer
-from rest_framework.views import APIView
-from rest_framework.response import Response
 from users.views import RegisterView
 from rest_framework_simplejwt.views import TokenObtainPairView, TokenRefreshView
 from quizzes.views import (
@@ -55,24 +54,339 @@ urlpatterns = [
 ]
 
 # OpenAPI schema (JSON) and Swagger UI
-class SchemaAPIView(APIView):
-    permission_classes = [permissions.AllowAny]
-    authentication_classes = []
-    renderer_classes = [JSONOpenAPIRenderer]
-
-    def get(self, request, *args, **kwargs):
-        from rest_framework.schemas.openapi import SchemaGenerator
-        generator = SchemaGenerator(
-            title="LiveQuiz API",
-            description="API documentation for LiveQuiz",
-            version="1.0.0",
-        )
-        schema = generator.get_schema(request=request, public=True)
-        return Response(schema)
+def openapi_schema_view(request):
+    schema = {
+        "openapi": "3.0.2",
+        "info": {
+            "title": "LiveQuiz API",
+            "version": "1.0.0",
+            "description": "API documentation for LiveQuiz",
+        },
+        "paths": {
+            "/api/register/": {
+                "post": {
+                    "summary": "Register new user",
+                    "requestBody": {
+                        "required": True,
+                        "content": {
+                            "application/json": {
+                                "schema": {"$ref": "#/components/schemas/RegisterRequest"}
+                            }
+                        },
+                    },
+                    "responses": {
+                        "201": {
+                            "description": "Created",
+                            "content": {
+                                "application/json": {
+                                    "schema": {"$ref": "#/components/schemas/RegisterResponse"}
+                                }
+                            },
+                        }
+                    },
+                }
+            },
+            "/api/login/": {
+                "post": {
+                    "summary": "Obtain JWT pair",
+                    "requestBody": {
+                        "required": True,
+                        "content": {
+                            "application/json": {
+                                "schema": {"$ref": "#/components/schemas/TokenObtainRequest"}
+                            }
+                        },
+                    },
+                    "responses": {
+                        "200": {
+                            "description": "OK",
+                            "content": {
+                                "application/json": {
+                                    "schema": {"$ref": "#/components/schemas/TokenObtainResponse"}
+                                }
+                            },
+                        }
+                    },
+                }
+            },
+            "/api/refresh/": {
+                "post": {
+                    "summary": "Refresh JWT access token",
+                    "requestBody": {
+                        "required": True,
+                        "content": {
+                            "application/json": {
+                                "schema": {"$ref": "#/components/schemas/TokenRefreshRequest"}
+                            }
+                        },
+                    },
+                    "responses": {
+                        "200": {
+                            "description": "OK",
+                            "content": {
+                                "application/json": {
+                                    "schema": {"$ref": "#/components/schemas/TokenRefreshResponse"}
+                                }
+                            },
+                        }
+                    },
+                }
+            },
+            "/api/quizzes/": {
+                "get": {
+                    "summary": "List quizzes",
+                    "security": [{"bearerAuth": []}],
+                    "responses": {
+                        "200": {
+                            "description": "OK",
+                            "content": {
+                                "application/json": {
+                                    "schema": {
+                                        "type": "array",
+                                        "items": {"$ref": "#/components/schemas/Quiz"}
+                                    }
+                                }
+                            }
+                        }
+                    }
+                },
+                "post": {
+                    "summary": "Create quiz",
+                    "security": [{"bearerAuth": []}],
+                    "requestBody": {
+                        "required": True,
+                        "content": {
+                            "application/json": {
+                                "schema": {"$ref": "#/components/schemas/QuizCreateRequest"}
+                            }
+                        }
+                    },
+                    "responses": {
+                        "201": {
+                            "description": "Created",
+                            "content": {
+                                "application/json": {
+                                    "schema": {"$ref": "#/components/schemas/Quiz"}
+                                }
+                            }
+                        }
+                    }
+                }
+            },
+            "/api/quizzes/{id}/": {
+                "parameters": [
+                    {"name": "id", "in": "path", "required": True, "schema": {"type": "integer"}}
+                ],
+                "get": {
+                    "summary": "Retrieve quiz",
+                    "security": [{"bearerAuth": []}],
+                    "responses": {
+                        "200": {
+                            "description": "OK",
+                            "content": {
+                                "application/json": {
+                                    "schema": {"$ref": "#/components/schemas/Quiz"}
+                                }
+                            }
+                        }
+                    }
+                },
+                "put": {
+                    "summary": "Update quiz",
+                    "security": [{"bearerAuth": []}],
+                    "requestBody": {
+                        "required": True,
+                        "content": {
+                            "application/json": {
+                                "schema": {"$ref": "#/components/schemas/QuizCreateRequest"}
+                            }
+                        }
+                    },
+                    "responses": {"200": {"description": "OK"}}
+                },
+                "patch": {
+                    "summary": "Partial update quiz",
+                    "security": [{"bearerAuth": []}],
+                    "requestBody": {
+                        "required": False,
+                        "content": {
+                            "application/json": {
+                                "schema": {"$ref": "#/components/schemas/QuizCreateRequest"}
+                            }
+                        }
+                    },
+                    "responses": {"200": {"description": "OK"}}
+                },
+                "delete": {
+                    "summary": "Delete quiz",
+                    "security": [{"bearerAuth": []}],
+                    "responses": {"204": {"description": "No Content"}}
+                }
+            },
+            "/api/quizzes/{quiz_id}/questions/": {
+                "post": {
+                    "summary": "Create question",
+                    "security": [{"bearerAuth": []}],
+                    "parameters": [
+                        {"name": "quiz_id", "in": "path", "required": True, "schema": {"type": "integer"}}
+                    ],
+                    "requestBody": {
+                        "required": True,
+                        "content": {
+                            "application/json": {
+                                "schema": {"$ref": "#/components/schemas/QuestionCreateRequest"}
+                            }
+                        }
+                    },
+                    "responses": {
+                        "201": {"description": "Created"}
+                    }
+                }
+            },
+            "/api/questions/{id}/delete/": {
+                "delete": {
+                    "summary": "Delete question",
+                    "security": [{"bearerAuth": []}],
+                    "parameters": [
+                        {"name": "id", "in": "path", "required": True, "schema": {"type": "integer"}}
+                    ],
+                    "responses": {"204": {"description": "No Content"}}
+                }
+            },
+            "/api/questions/{question_id}/choices/": {
+                "post": {
+                    "summary": "Create choice",
+                    "security": [{"bearerAuth": []}],
+                    "parameters": [
+                        {"name": "question_id", "in": "path", "required": True, "schema": {"type": "integer"}}
+                    ],
+                    "requestBody": {
+                        "required": True,
+                        "content": {
+                            "application/json": {
+                                "schema": {"$ref": "#/components/schemas/ChoiceCreateRequest"}
+                            }
+                        }
+                    },
+                    "responses": {"201": {"description": "Created"}}
+                }
+            },
+            "/api/choices/{id}/delete/": {
+                "delete": {
+                    "summary": "Delete choice",
+                    "security": [{"bearerAuth": []}],
+                    "parameters": [
+                        {"name": "id", "in": "path", "required": True, "schema": {"type": "integer"}}
+                    ],
+                    "responses": {"204": {"description": "No Content"}}
+                }
+            }
+        },
+        "components": {
+            "securitySchemes": {
+                "bearerAuth": {"type": "http", "scheme": "bearer", "bearerFormat": "JWT"}
+            },
+            "schemas": {
+                "RegisterRequest": {
+                    "type": "object",
+                    "required": ["email", "password", "password2"],
+                    "properties": {
+                        "email": {"type": "string", "format": "email"},
+                        "password": {"type": "string"},
+                        "password2": {"type": "string"}
+                    }
+                },
+                "RegisterResponse": {
+                    "type": "object",
+                    "properties": {
+                        "email": {"type": "string", "format": "email"}
+                    }
+                },
+                "TokenObtainRequest": {
+                    "type": "object",
+                    "required": ["email", "password"],
+                    "properties": {
+                        "email": {"type": "string", "format": "email"},
+                        "password": {"type": "string"}
+                    }
+                },
+                "TokenObtainResponse": {
+                    "type": "object",
+                    "properties": {
+                        "access": {"type": "string"},
+                        "refresh": {"type": "string"}
+                    }
+                },
+                "TokenRefreshRequest": {
+                    "type": "object",
+                    "required": ["refresh"],
+                    "properties": {"refresh": {"type": "string"}}
+                },
+                "TokenRefreshResponse": {
+                    "type": "object",
+                    "properties": {"access": {"type": "string"}}
+                },
+                "Choice": {
+                    "type": "object",
+                    "properties": {
+                        "id": {"type": "integer"},
+                        "text": {"type": "string"},
+                        "is_correct": {"type": "boolean"}
+                    }
+                },
+                "Question": {
+                    "type": "object",
+                    "properties": {
+                        "id": {"type": "integer"},
+                        "text": {"type": "string"},
+                        "order_index": {"type": "integer"},
+                        "choices": {"type": "array", "items": {"$ref": "#/components/schemas/Choice"}}
+                    }
+                },
+                "Quiz": {
+                    "type": "object",
+                    "properties": {
+                        "id": {"type": "integer"},
+                        "title": {"type": "string"},
+                        "description": {"type": "string", "nullable": True},
+                        "created_at": {"type": "string", "format": "date-time"},
+                        "updated_at": {"type": "string", "format": "date-time"},
+                        "questions": {"type": "array", "items": {"$ref": "#/components/schemas/Question"}}
+                    }
+                },
+                "QuizCreateRequest": {
+                    "type": "object",
+                    "required": ["title"],
+                    "properties": {
+                        "title": {"type": "string"},
+                        "description": {"type": "string"}
+                    }
+                },
+                "QuestionCreateRequest": {
+                    "type": "object",
+                    "required": ["text"],
+                    "properties": {
+                        "text": {"type": "string"},
+                        "order_index": {"type": "integer"},
+                        "choices": {"type": "array", "items": {"$ref": "#/components/schemas/Choice"}}
+                    }
+                },
+                "ChoiceCreateRequest": {
+                    "type": "object",
+                    "required": ["text"],
+                    "properties": {
+                        "text": {"type": "string"},
+                        "is_correct": {"type": "boolean"}
+                    }
+                }
+            }
+        }
+    }
+    return JsonResponse(schema)
 
 urlpatterns += [
-    path('api/schema/', SchemaAPIView.as_view(), name='openapi-schema'),
-    path('openapi.json', SchemaAPIView.as_view(), name='openapi-json'),
+    path('api/schema/', openapi_schema_view, name='openapi-schema'),
+    path('openapi.json', openapi_schema_view, name='openapi-json'),
     path(
         'api/docs/',
         TemplateView.as_view(
