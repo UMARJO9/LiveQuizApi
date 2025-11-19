@@ -31,6 +31,7 @@
         deepLinking: true,
         presets: [SwaggerUIBundle.presets.apis, SwaggerUIStandalonePreset],
         layout: 'StandaloneLayout',
+        persistAuthorization: true,
         requestInterceptor: (req) => {
           // Optionally inject JWT from localStorage for "Try it out"
           const token = localStorage.getItem('jwt');
@@ -42,4 +43,3 @@
   </script>
   </body>
   </html>
-
