@@ -17,12 +17,10 @@ Including another URLconf
 from django.contrib import admin
 from django.urls import path
 from django.views.generic import TemplateView
+from django.views.generic.base import RedirectView
 from django.http import JsonResponse
-from rest_framework.schemas import get_schema_view
-from rest_framework import permissions
-from rest_framework.renderers import JSONOpenAPIRenderer
-from users.views import RegisterView
 from rest_framework_simplejwt.views import TokenObtainPairView, TokenRefreshView
+from users.views import RegisterView
 from quizzes.views import (
     QuizListCreateView,
     QuizDetailView,
@@ -33,6 +31,7 @@ from quizzes.views import (
 )
 urlpatterns = [
     path('admin/', admin.site.urls),
+    path('', RedirectView.as_view(url='/api/docs/', permanent=False)),
 
     # Registration
     path('api/register/', RegisterView.as_view()),
@@ -62,10 +61,17 @@ def openapi_schema_view(request):
             "version": "1.0.0",
             "description": "API documentation for LiveQuiz",
         },
+        "tags": [
+            {"name": "Auth", "description": "Authentication and user registration"},
+            {"name": "Quizzes", "description": "Quiz CRUD endpoints"},
+            {"name": "Questions", "description": "Question CRUD endpoints"},
+            {"name": "Choices", "description": "Choice CRUD endpoints"},
+        ],
         "paths": {
             "/api/register/": {
                 "post": {
                     "summary": "Register new user",
+                    "tags": ["Auth"],
                     "requestBody": {
                         "required": True,
                         "content": {
@@ -89,6 +95,7 @@ def openapi_schema_view(request):
             "/api/login/": {
                 "post": {
                     "summary": "Obtain JWT pair",
+                    "tags": ["Auth"],
                     "requestBody": {
                         "required": True,
                         "content": {
@@ -112,6 +119,7 @@ def openapi_schema_view(request):
             "/api/refresh/": {
                 "post": {
                     "summary": "Refresh JWT access token",
+                    "tags": ["Auth"],
                     "requestBody": {
                         "required": True,
                         "content": {
@@ -135,6 +143,7 @@ def openapi_schema_view(request):
             "/api/quizzes/": {
                 "get": {
                     "summary": "List quizzes",
+                    "tags": ["Quizzes"],
                     "security": [{"bearerAuth": []}],
                     "responses": {
                         "200": {
@@ -152,6 +161,7 @@ def openapi_schema_view(request):
                 },
                 "post": {
                     "summary": "Create quiz",
+                    "tags": ["Quizzes"],
                     "security": [{"bearerAuth": []}],
                     "requestBody": {
                         "required": True,
@@ -179,6 +189,7 @@ def openapi_schema_view(request):
                 ],
                 "get": {
                     "summary": "Retrieve quiz",
+                    "tags": ["Quizzes"],
                     "security": [{"bearerAuth": []}],
                     "responses": {
                         "200": {
@@ -193,6 +204,7 @@ def openapi_schema_view(request):
                 },
                 "put": {
                     "summary": "Update quiz",
+                    "tags": ["Quizzes"],
                     "security": [{"bearerAuth": []}],
                     "requestBody": {
                         "required": True,
@@ -206,6 +218,7 @@ def openapi_schema_view(request):
                 },
                 "patch": {
                     "summary": "Partial update quiz",
+                    "tags": ["Quizzes"],
                     "security": [{"bearerAuth": []}],
                     "requestBody": {
                         "required": False,
@@ -219,6 +232,7 @@ def openapi_schema_view(request):
                 },
                 "delete": {
                     "summary": "Delete quiz",
+                    "tags": ["Quizzes"],
                     "security": [{"bearerAuth": []}],
                     "responses": {"204": {"description": "No Content"}}
                 }
@@ -226,6 +240,7 @@ def openapi_schema_view(request):
             "/api/quizzes/{quiz_id}/questions/": {
                 "post": {
                     "summary": "Create question",
+                    "tags": ["Questions"],
                     "security": [{"bearerAuth": []}],
                     "parameters": [
                         {"name": "quiz_id", "in": "path", "required": True, "schema": {"type": "integer"}}
@@ -246,6 +261,7 @@ def openapi_schema_view(request):
             "/api/questions/{id}/delete/": {
                 "delete": {
                     "summary": "Delete question",
+                    "tags": ["Questions"],
                     "security": [{"bearerAuth": []}],
                     "parameters": [
                         {"name": "id", "in": "path", "required": True, "schema": {"type": "integer"}}
@@ -256,6 +272,7 @@ def openapi_schema_view(request):
             "/api/questions/{question_id}/choices/": {
                 "post": {
                     "summary": "Create choice",
+                    "tags": ["Choices"],
                     "security": [{"bearerAuth": []}],
                     "parameters": [
                         {"name": "question_id", "in": "path", "required": True, "schema": {"type": "integer"}}
@@ -274,6 +291,7 @@ def openapi_schema_view(request):
             "/api/choices/{id}/delete/": {
                 "delete": {
                     "summary": "Delete choice",
+                    "tags": ["Choices"],
                     "security": [{"bearerAuth": []}],
                     "parameters": [
                         {"name": "id", "in": "path", "required": True, "schema": {"type": "integer"}}
