@@ -19,6 +19,9 @@ from django.urls import path
 from django.views.generic import TemplateView
 from rest_framework.schemas import get_schema_view
 from rest_framework import permissions
+from rest_framework.renderers import JSONOpenAPIRenderer
+from rest_framework.views import APIView
+from rest_framework.response import Response
 from users.views import RegisterView
 from rest_framework_simplejwt.views import TokenObtainPairView, TokenRefreshView
 from quizzes.views import (
@@ -52,16 +55,24 @@ urlpatterns = [
 ]
 
 # OpenAPI schema (JSON) and Swagger UI
-schema_view = get_schema_view(
-    title="LiveQuiz API",
-    description="API documentation for LiveQuiz",
-    version="1.0.0",
-    public=True,
-    permission_classes=[permissions.AllowAny],
-)
+class SchemaAPIView(APIView):
+    permission_classes = [permissions.AllowAny]
+    authentication_classes = []
+    renderer_classes = [JSONOpenAPIRenderer]
+
+    def get(self, request, *args, **kwargs):
+        from rest_framework.schemas.openapi import SchemaGenerator
+        generator = SchemaGenerator(
+            title="LiveQuiz API",
+            description="API documentation for LiveQuiz",
+            version="1.0.0",
+        )
+        schema = generator.get_schema(request=request, public=True)
+        return Response(schema)
 
 urlpatterns += [
-    path('api/schema/', schema_view, name='openapi-schema'),
+    path('api/schema/', SchemaAPIView.as_view(), name='openapi-schema'),
+    path('openapi.json', SchemaAPIView.as_view(), name='openapi-json'),
     path(
         'api/docs/',
         TemplateView.as_view(
