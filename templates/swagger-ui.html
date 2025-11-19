@@ -1,0 +1,45 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>LiveQuiz API Docs</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <link rel="stylesheet" href="https://unpkg.com/swagger-ui-dist@5/swagger-ui.css" />
+  <style>
+    html { box-sizing: border-box; overflow-y: auto; }
+    *, *:before, *:after { box-sizing: inherit; }
+    body { margin: 0; background: #fafafa; }
+  </style>
+  <link rel="icon" href="https://unpkg.com/swagger-ui-dist@5/favicon-32x32.png" />
+  <link rel="icon" type="image/png" href="https://unpkg.com/swagger-ui-dist@5/favicon-32x32.png" sizes="32x32" />
+  <link rel="icon" type="image/png" href="https://unpkg.com/swagger-ui-dist@5/favicon-16x16.png" sizes="16x16" />
+  {% load static %}
+  <script>
+    // Resolve Django URL name passed via extra_context
+    const SPEC_URL = '{% url schema_url %}';
+  </script>
+  <script src="https://unpkg.com/swagger-ui-dist@5/swagger-ui-bundle.js"></script>
+  <script src="https://unpkg.com/swagger-ui-dist@5/swagger-ui-standalone-preset.js"></script>
+</head>
+<body>
+  <div id="swagger-ui"></div>
+  <script>
+    window.onload = () => {
+      window.ui = SwaggerUIBundle({
+        url: SPEC_URL,
+        dom_id: '#swagger-ui',
+        deepLinking: true,
+        presets: [SwaggerUIBundle.presets.apis, SwaggerUIStandalonePreset],
+        layout: 'StandaloneLayout',
+        requestInterceptor: (req) => {
+          // Optionally inject JWT from localStorage for "Try it out"
+          const token = localStorage.getItem('jwt');
+          if (token) req.headers['Authorization'] = `Bearer ${token}`;
+          return req;
+        },
+      });
+    };
+  </script>
+  </body>
+  </html>
+
