@@ -19,8 +19,8 @@ from django.urls import path
 from django.views.generic import TemplateView
 from django.views.generic.base import RedirectView
 from django.http import JsonResponse
-from rest_framework_simplejwt.views import TokenObtainPairView, TokenRefreshView
-from users.views import RegisterView
+from rest_framework_simplejwt.views import TokenRefreshView
+from users.views import RegisterView, CustomTokenObtainPairView
 from quizzes.views import (
     QuizListCreateView,
     QuizDetailView,
@@ -37,7 +37,7 @@ urlpatterns = [
     path('api/register/', RegisterView.as_view()),
 
     # Login JWT
-    path('api/login/', TokenObtainPairView.as_view()),
+    path('api/login/', CustomTokenObtainPairView.as_view()),
     path('api/refresh/', TokenRefreshView.as_view()),
 
      path('api/quizzes/', QuizListCreateView.as_view()),
@@ -307,17 +307,22 @@ def openapi_schema_view(request):
             "schemas": {
                 "RegisterRequest": {
                     "type": "object",
-                    "required": ["email", "password", "password2"],
+                    "required": ["email", "password", "password2", "first_name", "last_name", "specialty"],
                     "properties": {
                         "email": {"type": "string", "format": "email"},
                         "password": {"type": "string"},
-                        "password2": {"type": "string"}
+                        "password2": {"type": "string"},
+                        "first_name": {"type": "string"},
+                        "last_name": {"type": "string"},
+                        "specialty": {"type": "string"}
                     }
                 },
                 "RegisterResponse": {
                     "type": "object",
                     "properties": {
-                        "email": {"type": "string", "format": "email"}
+                        "access": {"type": "string"},
+                        "refresh": {"type": "string"},
+                        "user": {"$ref": "#/components/schemas/UserInfo"}
                     }
                 },
                 "TokenObtainRequest": {
@@ -332,7 +337,17 @@ def openapi_schema_view(request):
                     "type": "object",
                     "properties": {
                         "access": {"type": "string"},
-                        "refresh": {"type": "string"}
+                        "refresh": {"type": "string"},
+                        "user": {"$ref": "#/components/schemas/UserInfo"}
+                    }
+                },
+                "UserInfo": {
+                    "type": "object",
+                    "properties": {
+                        "email": {"type": "string", "format": "email"},
+                        "first_name": {"type": "string"},
+                        "last_name": {"type": "string"},
+                        "specialty": {"type": "string"}
                     }
                 },
                 "TokenRefreshRequest": {
