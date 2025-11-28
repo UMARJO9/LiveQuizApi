@@ -19,8 +19,7 @@ from django.urls import path
 from django.views.generic import TemplateView
 from django.views.generic.base import RedirectView
 from django.http import JsonResponse
-from rest_framework_simplejwt.views import TokenRefreshView
-from users.views import RegisterView, CustomTokenObtainPairView
+from users.views import RegisterView, CustomTokenObtainPairView, CustomTokenRefreshView
 from quizzes.views import (
     QuizListCreateView,
     QuizDetailView,
@@ -38,9 +37,9 @@ urlpatterns = [
 
     # Login JWT
     path('api/login/', CustomTokenObtainPairView.as_view()),
-    path('api/refresh/', TokenRefreshView.as_view()),
+    path('api/refresh/', CustomTokenRefreshView.as_view()),
 
-     path('api/quizzes/', QuizListCreateView.as_view()),
+    path('api/quizzes/', QuizListCreateView.as_view()),
     path('api/quizzes/<int:pk>/', QuizDetailView.as_view()),
 
     # QUESTION CRUD
@@ -150,10 +149,7 @@ def openapi_schema_view(request):
                             "description": "OK",
                             "content": {
                                 "application/json": {
-                                    "schema": {
-                                        "type": "array",
-                                        "items": {"$ref": "#/components/schemas/Quiz"}
-                                    }
+                                    "schema": {"$ref": "#/components/schemas/QuizListResponse"}
                                 }
                             }
                         }
@@ -176,7 +172,7 @@ def openapi_schema_view(request):
                             "description": "Created",
                             "content": {
                                 "application/json": {
-                                    "schema": {"$ref": "#/components/schemas/Quiz"}
+                                    "schema": {"$ref": "#/components/schemas/QuizResponse"}
                                 }
                             }
                         }
@@ -196,7 +192,7 @@ def openapi_schema_view(request):
                             "description": "OK",
                             "content": {
                                 "application/json": {
-                                    "schema": {"$ref": "#/components/schemas/Quiz"}
+                                    "schema": {"$ref": "#/components/schemas/QuizResponse"}
                                 }
                             }
                         }
@@ -214,7 +210,16 @@ def openapi_schema_view(request):
                             }
                         }
                     },
-                    "responses": {"200": {"description": "OK"}}
+                    "responses": {
+                        "200": {
+                            "description": "OK",
+                            "content": {
+                                "application/json": {
+                                    "schema": {"$ref": "#/components/schemas/QuizResponse"}
+                                }
+                            }
+                        }
+                    }
                 },
                 "patch": {
                     "summary": "Partial update quiz",
@@ -228,13 +233,31 @@ def openapi_schema_view(request):
                             }
                         }
                     },
-                    "responses": {"200": {"description": "OK"}}
+                    "responses": {
+                        "200": {
+                            "description": "OK",
+                            "content": {
+                                "application/json": {
+                                    "schema": {"$ref": "#/components/schemas/QuizResponse"}
+                                }
+                            }
+                        }
+                    }
                 },
                 "delete": {
                     "summary": "Delete quiz",
                     "tags": ["Quizzes"],
                     "security": [{"bearerAuth": []}],
-                    "responses": {"204": {"description": "No Content"}}
+                    "responses": {
+                        "204": {
+                            "description": "No Content",
+                            "content": {
+                                "application/json": {
+                                    "schema": {"$ref": "#/components/schemas/EmptyResponse"}
+                                }
+                            }
+                        }
+                    }
                 }
             },
             "/api/quizzes/{quiz_id}/questions/": {
@@ -254,7 +277,14 @@ def openapi_schema_view(request):
                         }
                     },
                     "responses": {
-                        "201": {"description": "Created"}
+                        "201": {
+                            "description": "Created",
+                            "content": {
+                                "application/json": {
+                                    "schema": {"$ref": "#/components/schemas/QuestionResponse"}
+                                }
+                            }
+                        }
                     }
                 }
             },
@@ -266,7 +296,16 @@ def openapi_schema_view(request):
                     "parameters": [
                         {"name": "id", "in": "path", "required": True, "schema": {"type": "integer"}}
                     ],
-                    "responses": {"204": {"description": "No Content"}}
+                    "responses": {
+                        "204": {
+                            "description": "No Content",
+                            "content": {
+                                "application/json": {
+                                    "schema": {"$ref": "#/components/schemas/EmptyResponse"}
+                                }
+                            }
+                        }
+                    }
                 }
             },
             "/api/questions/{question_id}/choices/": {
@@ -285,7 +324,16 @@ def openapi_schema_view(request):
                             }
                         }
                     },
-                    "responses": {"201": {"description": "Created"}}
+                    "responses": {
+                        "201": {
+                            "description": "Created",
+                            "content": {
+                                "application/json": {
+                                    "schema": {"$ref": "#/components/schemas/ChoiceResponse"}
+                                }
+                            }
+                        }
+                    }
                 }
             },
             "/api/choices/{id}/delete/": {
@@ -296,7 +344,16 @@ def openapi_schema_view(request):
                     "parameters": [
                         {"name": "id", "in": "path", "required": True, "schema": {"type": "integer"}}
                     ],
-                    "responses": {"204": {"description": "No Content"}}
+                    "responses": {
+                        "204": {
+                            "description": "No Content",
+                            "content": {
+                                "application/json": {
+                                    "schema": {"$ref": "#/components/schemas/EmptyResponse"}
+                                }
+                            }
+                        }
+                    }
                 }
             }
         },
@@ -305,6 +362,15 @@ def openapi_schema_view(request):
                 "bearerAuth": {"type": "http", "scheme": "bearer", "bearerFormat": "JWT"}
             },
             "schemas": {
+                "StandardResponseBase": {
+                    "type": "object",
+                    "properties": {
+                        "success": {"type": "boolean"},
+                        "code": {"type": "integer"},
+                        "message": {"type": "string"}
+                    },
+                    "required": ["success", "code", "message"]
+                },
                 "RegisterRequest": {
                     "type": "object",
                     "required": ["email", "password", "password2", "first_name", "last_name", "specialty"],
@@ -317,13 +383,22 @@ def openapi_schema_view(request):
                         "specialty": {"type": "string"}
                     }
                 },
-                "RegisterResponse": {
+                "RegisterResult": {
                     "type": "object",
                     "properties": {
                         "access": {"type": "string"},
                         "refresh": {"type": "string"},
                         "user": {"$ref": "#/components/schemas/UserInfo"}
                     }
+                },
+                "RegisterResponse": {
+                    "allOf": [
+                        {"$ref": "#/components/schemas/StandardResponseBase"},
+                        {
+                            "type": "object",
+                            "properties": {"result": {"$ref": "#/components/schemas/RegisterResult"}}
+                        }
+                    ]
                 },
                 "TokenObtainRequest": {
                     "type": "object",
@@ -333,13 +408,40 @@ def openapi_schema_view(request):
                         "password": {"type": "string"}
                     }
                 },
-                "TokenObtainResponse": {
+                "TokenObtainResult": {
                     "type": "object",
                     "properties": {
                         "access": {"type": "string"},
                         "refresh": {"type": "string"},
                         "user": {"$ref": "#/components/schemas/UserInfo"}
                     }
+                },
+                "TokenObtainResponse": {
+                    "allOf": [
+                        {"$ref": "#/components/schemas/StandardResponseBase"},
+                        {
+                            "type": "object",
+                            "properties": {"result": {"$ref": "#/components/schemas/TokenObtainResult"}}
+                        }
+                    ]
+                },
+                "TokenRefreshRequest": {
+                    "type": "object",
+                    "required": ["refresh"],
+                    "properties": {"refresh": {"type": "string"}}
+                },
+                "TokenRefreshResult": {
+                    "type": "object",
+                    "properties": {"access": {"type": "string"}}
+                },
+                "TokenRefreshResponse": {
+                    "allOf": [
+                        {"$ref": "#/components/schemas/StandardResponseBase"},
+                        {
+                            "type": "object",
+                            "properties": {"result": {"$ref": "#/components/schemas/TokenRefreshResult"}}
+                        }
+                    ]
                 },
                 "UserInfo": {
                     "type": "object",
@@ -349,15 +451,6 @@ def openapi_schema_view(request):
                         "last_name": {"type": "string"},
                         "specialty": {"type": "string"}
                     }
-                },
-                "TokenRefreshRequest": {
-                    "type": "object",
-                    "required": ["refresh"],
-                    "properties": {"refresh": {"type": "string"}}
-                },
-                "TokenRefreshResponse": {
-                    "type": "object",
-                    "properties": {"access": {"type": "string"}}
                 },
                 "Choice": {
                     "type": "object",
@@ -411,6 +504,56 @@ def openapi_schema_view(request):
                         "text": {"type": "string"},
                         "is_correct": {"type": "boolean"}
                     }
+                },
+                "QuizListResponse": {
+                    "allOf": [
+                        {"$ref": "#/components/schemas/StandardResponseBase"},
+                        {
+                            "type": "object",
+                            "properties": {
+                                "result": {
+                                    "type": "array",
+                                    "items": {"$ref": "#/components/schemas/Quiz"}
+                                }
+                            }
+                        }
+                    ]
+                },
+                "QuizResponse": {
+                    "allOf": [
+                        {"$ref": "#/components/schemas/StandardResponseBase"},
+                        {
+                            "type": "object",
+                            "properties": {"result": {"$ref": "#/components/schemas/Quiz"}}
+                        }
+                    ]
+                },
+                "QuestionResponse": {
+                    "allOf": [
+                        {"$ref": "#/components/schemas/StandardResponseBase"},
+                        {
+                            "type": "object",
+                            "properties": {"result": {"$ref": "#/components/schemas/Question"}}
+                        }
+                    ]
+                },
+                "ChoiceResponse": {
+                    "allOf": [
+                        {"$ref": "#/components/schemas/StandardResponseBase"},
+                        {
+                            "type": "object",
+                            "properties": {"result": {"$ref": "#/components/schemas/Choice"}}
+                        }
+                    ]
+                },
+                "EmptyResponse": {
+                    "allOf": [
+                        {"$ref": "#/components/schemas/StandardResponseBase"},
+                        {
+                            "type": "object",
+                            "properties": {"result": {"nullable": True}}
+                        }
+                    ]
                 }
             }
         }
