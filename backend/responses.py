@@ -56,10 +56,18 @@ class StandardResponseMixin:
         response = super().finalize_response(request, response, *args, **kwargs)
 
         if isinstance(response, Response) and not getattr(response, "_already_standardized", False):
+            data = response.data
+            message_override = None
+            # If view already returned only a message field, treat it as top-level message, not result payload.
+            if isinstance(data, dict) and set(data.keys()) == {"message"}:
+                message_override = data.get("message")
+                data = None
+
             payload = build_api_response(
-                data=response.data,
+                data=data,
                 status_code=response.status_code,
                 success=status.is_success(response.status_code),
+                message=message_override,
             )
             response.data = payload
             response._already_standardized = True

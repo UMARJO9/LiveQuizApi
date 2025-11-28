@@ -249,8 +249,16 @@ def openapi_schema_view(request):
                     "tags": ["Quizzes"],
                     "security": [{"bearerAuth": []}],
                     "responses": {
-                        "204": {
-                            "description": "No Content",
+                        "200": {
+                            "description": "Deleted",
+                            "content": {
+                                "application/json": {
+                                    "schema": {"$ref": "#/components/schemas/EmptyResponse"}
+                                }
+                            }
+                        },
+                        "404": {
+                            "description": "Not Found",
                             "content": {
                                 "application/json": {
                                     "schema": {"$ref": "#/components/schemas/EmptyResponse"}
@@ -297,8 +305,16 @@ def openapi_schema_view(request):
                         {"name": "id", "in": "path", "required": True, "schema": {"type": "integer"}}
                     ],
                     "responses": {
-                        "204": {
-                            "description": "No Content",
+                        "200": {
+                            "description": "Deleted",
+                            "content": {
+                                "application/json": {
+                                    "schema": {"$ref": "#/components/schemas/EmptyResponse"}
+                                }
+                            }
+                        },
+                        "404": {
+                            "description": "Not Found",
                             "content": {
                                 "application/json": {
                                     "schema": {"$ref": "#/components/schemas/EmptyResponse"}
@@ -345,8 +361,16 @@ def openapi_schema_view(request):
                         {"name": "id", "in": "path", "required": True, "schema": {"type": "integer"}}
                     ],
                     "responses": {
-                        "204": {
-                            "description": "No Content",
+                        "200": {
+                            "description": "Deleted",
+                            "content": {
+                                "application/json": {
+                                    "schema": {"$ref": "#/components/schemas/EmptyResponse"}
+                                }
+                            }
+                        },
+                        "404": {
+                            "description": "Not Found",
                             "content": {
                                 "application/json": {
                                     "schema": {"$ref": "#/components/schemas/EmptyResponse"}
