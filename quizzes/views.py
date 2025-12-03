@@ -1,50 +1,65 @@
-from django.shortcuts import render
-
 from django.http import Http404
+from django.shortcuts import get_object_or_404
 from rest_framework import generics, permissions, status
 from rest_framework.response import Response
+from rest_framework.views import APIView
 
 from backend.responses import StandardResponseMixin
-from .models import Quiz, Question, Choice
-from .serializers import QuizSerializer, QuestionSerializer, ChoiceSerializer
+from .models import AnswerOption, Question, Topic
+from .serializers import (
+    AnswerOptionSerializer,
+    QuestionCreateSerializer,
+    QuestionSerializer,
+    TopicSerializer,
+)
 
 
-# ----- QUIZ CRUD -----
+# ----- TOPIC CRUD -----
 
-class QuizListCreateView(StandardResponseMixin, generics.ListCreateAPIView):
-    serializer_class = QuizSerializer
+class TopicListCreateView(StandardResponseMixin, generics.ListCreateAPIView):
+    serializer_class = TopicSerializer
     permission_classes = [permissions.IsAuthenticated]
 
     def get_queryset(self):
-        return Quiz.objects.filter(teacher=self.request.user)
+        return Topic.objects.filter(teacher=self.request.user)
 
     def perform_create(self, serializer):
         serializer.save(teacher=self.request.user)
 
 
-class QuizDetailView(StandardResponseMixin, generics.RetrieveUpdateDestroyAPIView):
-    queryset = Quiz.objects.all()
-    serializer_class = QuizSerializer
+class TopicDetailView(StandardResponseMixin, generics.RetrieveUpdateDestroyAPIView):
+    queryset = Topic.objects.all()
+    serializer_class = TopicSerializer
     permission_classes = [permissions.IsAuthenticated]
 
     def destroy(self, request, *args, **kwargs):
         try:
             instance = self.get_object()
         except Http404:
-            return Response({"message": "Quiz not found"}, status=status.HTTP_404_NOT_FOUND)
+            return Response({"message": "Topic not found"}, status=status.HTTP_404_NOT_FOUND)
         self.perform_destroy(instance)
-        return Response({"message": "Quiz deleted"}, status=status.HTTP_200_OK)
+        return Response({"message": "Topic deleted"}, status=status.HTTP_200_OK)
 
 
 # ----- QUESTION CRUD -----
 
-class QuestionCreateView(StandardResponseMixin, generics.CreateAPIView):
-    serializer_class = QuestionSerializer
+class QuestionCreateAPIView(StandardResponseMixin, APIView):
     permission_classes = [permissions.IsAuthenticated]
 
-    def perform_create(self, serializer):
-        quiz_id = self.kwargs["quiz_id"]
-        serializer.save(quiz_id=quiz_id)
+    def post(self, request, topic_id):
+        serializer = QuestionCreateSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+
+        topic = get_object_or_404(Topic, pk=topic_id)
+        if topic.teacher != request.user:
+            return Response(
+                {"message": "You do not have permission to add questions to this topic."},
+                status=status.HTTP_403_FORBIDDEN,
+            )
+
+        question = serializer.save(topic=topic)
+        response_data = QuestionCreateSerializer(question).data
+        return Response(response_data, status=status.HTTP_201_CREATED)
 
 
 class QuestionDeleteView(StandardResponseMixin, generics.DestroyAPIView):
@@ -60,26 +75,18 @@ class QuestionDeleteView(StandardResponseMixin, generics.DestroyAPIView):
         return Response({"message": "Question deleted"}, status=status.HTTP_200_OK)
 
 
-# ----- CHOICE CRUD -----
+# ----- ANSWER OPTION CRUD -----
 
-class ChoiceCreateView(StandardResponseMixin, generics.CreateAPIView):
-    serializer_class = ChoiceSerializer
-    permission_classes = [permissions.IsAuthenticated]
-
-    def perform_create(self, serializer):
-        question_id = self.kwargs["question_id"]
-        serializer.save(question_id=question_id)
-
-
-class ChoiceDeleteView(StandardResponseMixin, generics.DestroyAPIView):
-    queryset = Choice.objects.all()
+class AnswerOptionDeleteView(StandardResponseMixin, generics.DestroyAPIView):
+    queryset = AnswerOption.objects.all()
+    serializer_class = AnswerOptionSerializer
     permission_classes = [permissions.IsAuthenticated]
 
     def destroy(self, request, *args, **kwargs):
         try:
             instance = self.get_object()
         except Http404:
-            return Response({"message": "Choice not found"}, status=status.HTTP_404_NOT_FOUND)
+            return Response({"message": "Answer option not found"}, status=status.HTTP_404_NOT_FOUND)
         self.perform_destroy(instance)
-        return Response({"message": "Choice deleted"}, status=status.HTTP_200_OK)
+        return Response({"message": "Option deleted"}, status=status.HTTP_200_OK)
 

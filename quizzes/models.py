@@ -1,13 +1,12 @@
 from django.db import models
-
-from django.db import models
 from users.models import User
 
 
-class Quiz(models.Model):
-    teacher = models.ForeignKey(User, on_delete=models.CASCADE)
+class Topic(models.Model):
+    teacher = models.ForeignKey(User, on_delete=models.CASCADE, related_name="topics")
     title = models.CharField(max_length=255)
     description = models.TextField(blank=True, null=True)
+    question_timer = models.IntegerField(default=20)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
@@ -16,7 +15,7 @@ class Quiz(models.Model):
 
 
 class Question(models.Model):
-    quiz = models.ForeignKey(Quiz, on_delete=models.CASCADE, related_name="questions")
+    topic = models.ForeignKey(Topic, on_delete=models.CASCADE, related_name="questions")
     text = models.CharField(max_length=500)
     order_index = models.IntegerField(default=0)
 
@@ -24,8 +23,8 @@ class Question(models.Model):
         return self.text
 
 
-class Choice(models.Model):
-    question = models.ForeignKey(Question, on_delete=models.CASCADE, related_name="choices")
+class AnswerOption(models.Model):
+    question = models.ForeignKey(Question, on_delete=models.CASCADE, related_name="options")
     text = models.CharField(max_length=255)
     is_correct = models.BooleanField(default=False)
 

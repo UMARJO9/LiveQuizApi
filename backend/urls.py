@@ -21,12 +21,11 @@ from django.views.generic.base import RedirectView
 from django.http import JsonResponse
 from users.views import RegisterView, CustomTokenObtainPairView, CustomTokenRefreshView
 from quizzes.views import (
-    QuizListCreateView,
-    QuizDetailView,
-    QuestionCreateView,
+    TopicListCreateView,
+    TopicDetailView,
+    QuestionCreateAPIView,
     QuestionDeleteView,
-    ChoiceCreateView,
-    ChoiceDeleteView,
+    AnswerOptionDeleteView,
 )
 urlpatterns = [
     path('admin/', admin.site.urls),
@@ -42,22 +41,20 @@ urlpatterns = [
     path('api/login', CustomTokenObtainPairView.as_view()),
     path('api/refresh', CustomTokenRefreshView.as_view()),
 
-    path('api/quizzes/', QuizListCreateView.as_view()),
-    path('api/quizzes', QuizListCreateView.as_view()),
-    path('api/quizzes/<int:pk>/', QuizDetailView.as_view()),
-    path('api/quizzes/<int:pk>', QuizDetailView.as_view()),
+    path('api/quizzes/', TopicListCreateView.as_view()),
+    path('api/quizzes', TopicListCreateView.as_view()),
+    path('api/quizzes/<int:pk>/', TopicDetailView.as_view()),
+    path('api/quizzes/<int:pk>', TopicDetailView.as_view()),
 
     # QUESTION CRUD
-    path('api/quizzes/<int:quiz_id>/questions/', QuestionCreateView.as_view()),
-    path('api/quizzes/<int:quiz_id>/questions', QuestionCreateView.as_view()),
+    path('api/topics/<int:topic_id>/questions/', QuestionCreateAPIView.as_view()),
+    path('api/topics/<int:topic_id>/questions', QuestionCreateAPIView.as_view()),
     path('api/questions/<int:pk>/delete/', QuestionDeleteView.as_view()),
     path('api/questions/<int:pk>/delete', QuestionDeleteView.as_view()),
 
-    # CHOICE CRUD
-    path('api/questions/<int:question_id>/choices/', ChoiceCreateView.as_view()),
-    path('api/questions/<int:question_id>/choices', ChoiceCreateView.as_view()),
-    path('api/choices/<int:pk>/delete/', ChoiceDeleteView.as_view()),
-    path('api/choices/<int:pk>/delete', ChoiceDeleteView.as_view()),
+    # ANSWER OPTION CRUD
+    path('api/options/<int:pk>/delete/', AnswerOptionDeleteView.as_view()),
+    path('api/options/<int:pk>/delete', AnswerOptionDeleteView.as_view()),
 ]
 
 # OpenAPI schema (JSON) and Swagger UI
@@ -71,9 +68,9 @@ def openapi_schema_view(request):
         },
         "tags": [
             {"name": "Auth", "description": "Authentication and user registration"},
-            {"name": "Quizzes", "description": "Quiz CRUD endpoints"},
+            {"name": "Topics", "description": "Topic CRUD endpoints"},
             {"name": "Questions", "description": "Question CRUD endpoints"},
-            {"name": "Choices", "description": "Choice CRUD endpoints"},
+            {"name": "Answer Options", "description": "Answer option endpoints"},
         ],
         "paths": {
             "/api/register/": {
@@ -150,29 +147,29 @@ def openapi_schema_view(request):
             },
             "/api/quizzes/": {
                 "get": {
-                    "summary": "List quizzes",
-                    "tags": ["Quizzes"],
+                    "summary": "List topics",
+                    "tags": ["Topics"],
                     "security": [{"bearerAuth": []}],
                     "responses": {
                         "200": {
                             "description": "OK",
                             "content": {
                                 "application/json": {
-                                    "schema": {"$ref": "#/components/schemas/QuizListResponse"}
+                                    "schema": {"$ref": "#/components/schemas/TopicListResponse"}
                                 }
                             }
                         }
                     }
                 },
                 "post": {
-                    "summary": "Create quiz",
-                    "tags": ["Quizzes"],
+                    "summary": "Create topic",
+                    "tags": ["Topics"],
                     "security": [{"bearerAuth": []}],
                     "requestBody": {
                         "required": True,
                         "content": {
                             "application/json": {
-                                "schema": {"$ref": "#/components/schemas/QuizCreateRequest"}
+                                "schema": {"$ref": "#/components/schemas/TopicCreateRequest"}
                             }
                         }
                     },
@@ -181,7 +178,7 @@ def openapi_schema_view(request):
                             "description": "Created",
                             "content": {
                                 "application/json": {
-                                    "schema": {"$ref": "#/components/schemas/QuizResponse"}
+                                    "schema": {"$ref": "#/components/schemas/TopicResponse"}
                                 }
                             }
                         }
@@ -193,29 +190,29 @@ def openapi_schema_view(request):
                     {"name": "id", "in": "path", "required": True, "schema": {"type": "integer"}}
                 ],
                 "get": {
-                    "summary": "Retrieve quiz",
-                    "tags": ["Quizzes"],
+                    "summary": "Retrieve topic",
+                    "tags": ["Topics"],
                     "security": [{"bearerAuth": []}],
                     "responses": {
                         "200": {
                             "description": "OK",
                             "content": {
                                 "application/json": {
-                                    "schema": {"$ref": "#/components/schemas/QuizResponse"}
+                                    "schema": {"$ref": "#/components/schemas/TopicResponse"}
                                 }
                             }
                         }
                     }
                 },
                 "put": {
-                    "summary": "Update quiz",
-                    "tags": ["Quizzes"],
+                    "summary": "Update topic",
+                    "tags": ["Topics"],
                     "security": [{"bearerAuth": []}],
                     "requestBody": {
                         "required": True,
                         "content": {
                             "application/json": {
-                                "schema": {"$ref": "#/components/schemas/QuizCreateRequest"}
+                                "schema": {"$ref": "#/components/schemas/TopicCreateRequest"}
                             }
                         }
                     },
@@ -224,21 +221,21 @@ def openapi_schema_view(request):
                             "description": "OK",
                             "content": {
                                 "application/json": {
-                                    "schema": {"$ref": "#/components/schemas/QuizResponse"}
+                                    "schema": {"$ref": "#/components/schemas/TopicResponse"}
                                 }
                             }
                         }
                     }
                 },
                 "patch": {
-                    "summary": "Partial update quiz",
-                    "tags": ["Quizzes"],
+                    "summary": "Partial update topic",
+                    "tags": ["Topics"],
                     "security": [{"bearerAuth": []}],
                     "requestBody": {
                         "required": False,
                         "content": {
                             "application/json": {
-                                "schema": {"$ref": "#/components/schemas/QuizCreateRequest"}
+                                "schema": {"$ref": "#/components/schemas/TopicCreateRequest"}
                             }
                         }
                     },
@@ -247,15 +244,15 @@ def openapi_schema_view(request):
                             "description": "OK",
                             "content": {
                                 "application/json": {
-                                    "schema": {"$ref": "#/components/schemas/QuizResponse"}
+                                    "schema": {"$ref": "#/components/schemas/TopicResponse"}
                                 }
                             }
                         }
                     }
                 },
                 "delete": {
-                    "summary": "Delete quiz",
-                    "tags": ["Quizzes"],
+                    "summary": "Delete topic",
+                    "tags": ["Topics"],
                     "security": [{"bearerAuth": []}],
                     "responses": {
                         "200": {
@@ -277,13 +274,13 @@ def openapi_schema_view(request):
                     }
                 }
             },
-            "/api/quizzes/{quiz_id}/questions/": {
+            "/api/topics/{topic_id}/questions/": {
                 "post": {
-                    "summary": "Create question",
+                    "summary": "Create question with options",
                     "tags": ["Questions"],
                     "security": [{"bearerAuth": []}],
                     "parameters": [
-                        {"name": "quiz_id", "in": "path", "required": True, "schema": {"type": "integer"}}
+                        {"name": "topic_id", "in": "path", "required": True, "schema": {"type": "integer"}}
                     ],
                     "requestBody": {
                         "required": True,
@@ -333,38 +330,10 @@ def openapi_schema_view(request):
                     }
                 }
             },
-            "/api/questions/{question_id}/choices/": {
-                "post": {
-                    "summary": "Create choice",
-                    "tags": ["Choices"],
-                    "security": [{"bearerAuth": []}],
-                    "parameters": [
-                        {"name": "question_id", "in": "path", "required": True, "schema": {"type": "integer"}}
-                    ],
-                    "requestBody": {
-                        "required": True,
-                        "content": {
-                            "application/json": {
-                                "schema": {"$ref": "#/components/schemas/ChoiceCreateRequest"}
-                            }
-                        }
-                    },
-                    "responses": {
-                        "201": {
-                            "description": "Created",
-                            "content": {
-                                "application/json": {
-                                    "schema": {"$ref": "#/components/schemas/ChoiceResponse"}
-                                }
-                            }
-                        }
-                    }
-                }
-            },
-            "/api/choices/{id}/delete/": {
+            "/api/options/{id}/delete/": {
                 "delete": {
-                    "summary": "Delete choice",
-                    "tags": ["Choices"],
+                    "summary": "Delete answer option",
+                    "tags": ["Answer Options"],
                     "security": [{"bearerAuth": []}],
                     "parameters": [
                         {"name": "id", "in": "path", "required": True, "schema": {"type": "integer"}}
@@ -485,10 +454,18 @@ def openapi_schema_view(request):
                         "specialty": {"type": "string"}
                     }
                 },
-                "Choice": {
+                "AnswerOption": {
                     "type": "object",
                     "properties": {
                         "id": {"type": "integer"},
+                        "text": {"type": "string"},
+                        "is_correct": {"type": "boolean"}
+                    }
+                },
+                "AnswerOptionCreate": {
+                    "type": "object",
+                    "required": ["text", "is_correct"],
+                    "properties": {
                         "text": {"type": "string"},
                         "is_correct": {"type": "boolean"}
                     }
@@ -498,47 +475,40 @@ def openapi_schema_view(request):
                     "properties": {
                         "id": {"type": "integer"},
                         "text": {"type": "string"},
-                        "order_index": {"type": "integer"},
-                        "choices": {"type": "array", "items": {"$ref": "#/components/schemas/Choice"}}
+                        "topic_id": {"type": "integer"},
+                        "options": {"type": "array", "items": {"$ref": "#/components/schemas/AnswerOption"}}
                     }
                 },
-                "Quiz": {
+                "Topic": {
                     "type": "object",
                     "properties": {
                         "id": {"type": "integer"},
                         "title": {"type": "string"},
                         "description": {"type": "string", "nullable": True},
+                        "question_timer": {"type": "integer"},
                         "created_at": {"type": "string", "format": "date-time"},
                         "updated_at": {"type": "string", "format": "date-time"},
                         "questions": {"type": "array", "items": {"$ref": "#/components/schemas/Question"}}
                     }
                 },
-                "QuizCreateRequest": {
+                "TopicCreateRequest": {
                     "type": "object",
                     "required": ["title"],
                     "properties": {
                         "title": {"type": "string"},
-                        "description": {"type": "string"}
+                        "description": {"type": "string"},
+                        "question_timer": {"type": "integer"}
                     }
                 },
                 "QuestionCreateRequest": {
                     "type": "object",
-                    "required": ["text"],
+                    "required": ["text", "options"],
                     "properties": {
                         "text": {"type": "string"},
-                        "order_index": {"type": "integer"},
-                        "choices": {"type": "array", "items": {"$ref": "#/components/schemas/Choice"}}
+                        "options": {"type": "array", "items": {"$ref": "#/components/schemas/AnswerOptionCreate"}}
                     }
                 },
-                "ChoiceCreateRequest": {
-                    "type": "object",
-                    "required": ["text"],
-                    "properties": {
-                        "text": {"type": "string"},
-                        "is_correct": {"type": "boolean"}
-                    }
-                },
-                "QuizListResponse": {
+                "TopicListResponse": {
                     "allOf": [
                         {"$ref": "#/components/schemas/StandardResponseBase"},
                         {
@@ -546,18 +516,18 @@ def openapi_schema_view(request):
                             "properties": {
                                 "result": {
                                     "type": "array",
-                                    "items": {"$ref": "#/components/schemas/Quiz"}
+                                    "items": {"$ref": "#/components/schemas/Topic"}
                                 }
                             }
                         }
                     ]
                 },
-                "QuizResponse": {
+                "TopicResponse": {
                     "allOf": [
                         {"$ref": "#/components/schemas/StandardResponseBase"},
                         {
                             "type": "object",
-                            "properties": {"result": {"$ref": "#/components/schemas/Quiz"}}
+                            "properties": {"result": {"$ref": "#/components/schemas/Topic"}}
                         }
                     ]
                 },
@@ -567,15 +537,6 @@ def openapi_schema_view(request):
                         {
                             "type": "object",
                             "properties": {"result": {"$ref": "#/components/schemas/Question"}}
-                        }
-                    ]
-                },
-                "ChoiceResponse": {
-                    "allOf": [
-                        {"$ref": "#/components/schemas/StandardResponseBase"},
-                        {
-                            "type": "object",
-                            "properties": {"result": {"$ref": "#/components/schemas/Choice"}}
                         }
                     ]
                 },
