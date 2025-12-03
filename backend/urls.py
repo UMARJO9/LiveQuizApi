@@ -34,21 +34,30 @@ urlpatterns = [
 
     # Registration
     path('api/register/', RegisterView.as_view()),
+    path('api/register', RegisterView.as_view()),
 
     # Login JWT
     path('api/login/', CustomTokenObtainPairView.as_view()),
     path('api/refresh/', CustomTokenRefreshView.as_view()),
+    path('api/login', CustomTokenObtainPairView.as_view()),
+    path('api/refresh', CustomTokenRefreshView.as_view()),
 
     path('api/quizzes/', QuizListCreateView.as_view()),
+    path('api/quizzes', QuizListCreateView.as_view()),
     path('api/quizzes/<int:pk>/', QuizDetailView.as_view()),
+    path('api/quizzes/<int:pk>', QuizDetailView.as_view()),
 
     # QUESTION CRUD
     path('api/quizzes/<int:quiz_id>/questions/', QuestionCreateView.as_view()),
+    path('api/quizzes/<int:quiz_id>/questions', QuestionCreateView.as_view()),
     path('api/questions/<int:pk>/delete/', QuestionDeleteView.as_view()),
+    path('api/questions/<int:pk>/delete', QuestionDeleteView.as_view()),
 
     # CHOICE CRUD
     path('api/questions/<int:question_id>/choices/', ChoiceCreateView.as_view()),
+    path('api/questions/<int:question_id>/choices', ChoiceCreateView.as_view()),
     path('api/choices/<int:pk>/delete/', ChoiceDeleteView.as_view()),
+    path('api/choices/<int:pk>/delete', ChoiceDeleteView.as_view()),
 ]
 
 # OpenAPI schema (JSON) and Swagger UI
