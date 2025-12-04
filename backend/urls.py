@@ -19,7 +19,7 @@ from django.urls import path
 from django.views.generic import TemplateView
 from django.views.generic.base import RedirectView
 from django.http import JsonResponse
-from users.views import RegisterView, CustomTokenObtainPairView, CustomTokenRefreshView
+from users.views import LoginAPIView
 from quizzes.views import (
     TopicListCreateView,
     TopicDetailView,
@@ -31,15 +31,8 @@ urlpatterns = [
     path('admin/', admin.site.urls),
     path('', RedirectView.as_view(url='/api/docs/', permanent=False)),
 
-    # Registration
-    path('api/register/', RegisterView.as_view()),
-    path('api/register', RegisterView.as_view()),
-
-    # Login JWT
-    path('api/login/', CustomTokenObtainPairView.as_view()),
-    path('api/refresh/', CustomTokenRefreshView.as_view()),
-    path('api/login', CustomTokenObtainPairView.as_view()),
-    path('api/refresh', CustomTokenRefreshView.as_view()),
+    # Auth: Login only
+    path('api/auth/login/', LoginAPIView.as_view()),
 
     path('api/quizzes/', TopicListCreateView.as_view()),
     path('api/quizzes', TopicListCreateView.as_view()),
@@ -67,45 +60,21 @@ def openapi_schema_view(request):
             "description": "API documentation for LiveQuiz",
         },
         "tags": [
-            {"name": "Auth", "description": "Authentication and user registration"},
+            {"name": "Auth", "description": "Authentication"},
             {"name": "Topics", "description": "Topic CRUD endpoints"},
             {"name": "Questions", "description": "Question CRUD endpoints"},
             {"name": "Answer Options", "description": "Answer option endpoints"},
         ],
         "paths": {
-            "/api/register/": {
+            "/api/auth/login/": {
                 "post": {
-                    "summary": "Register new user",
+                    "summary": "Login and obtain access token",
                     "tags": ["Auth"],
                     "requestBody": {
                         "required": True,
                         "content": {
                             "application/json": {
-                                "schema": {"$ref": "#/components/schemas/RegisterRequest"}
-                            }
-                        },
-                    },
-                    "responses": {
-                        "201": {
-                            "description": "Created",
-                            "content": {
-                                "application/json": {
-                                    "schema": {"$ref": "#/components/schemas/RegisterResponse"}
-                                }
-                            },
-                        }
-                    },
-                }
-            },
-            "/api/login/": {
-                "post": {
-                    "summary": "Obtain JWT pair",
-                    "tags": ["Auth"],
-                    "requestBody": {
-                        "required": True,
-                        "content": {
-                            "application/json": {
-                                "schema": {"$ref": "#/components/schemas/TokenObtainRequest"}
+                                "schema": {"$ref": "#/components/schemas/LoginRequest"}
                             }
                         },
                     },
@@ -114,33 +83,17 @@ def openapi_schema_view(request):
                             "description": "OK",
                             "content": {
                                 "application/json": {
-                                    "schema": {"$ref": "#/components/schemas/TokenObtainResponse"}
+                                    "schema": {"$ref": "#/components/schemas/LoginResponse"}
                                 }
                             },
-                        }
-                    },
-                }
-            },
-            "/api/refresh/": {
-                "post": {
-                    "summary": "Refresh JWT access token",
-                    "tags": ["Auth"],
-                    "requestBody": {
-                        "required": True,
-                        "content": {
-                            "application/json": {
-                                "schema": {"$ref": "#/components/schemas/TokenRefreshRequest"}
-                            }
                         },
-                    },
-                    "responses": {
-                        "200": {
-                            "description": "OK",
+                        "401": {
+                            "description": "Unauthorized",
                             "content": {
                                 "application/json": {
-                                    "schema": {"$ref": "#/components/schemas/TokenRefreshResponse"}
+                                    "schema": {"$ref": "#/components/schemas/LoginErrorResponse"}
                                 }
-                            },
+                            }
                         }
                     },
                 }
@@ -373,78 +326,31 @@ def openapi_schema_view(request):
                     },
                     "required": ["success", "code", "message"]
                 },
-                "RegisterRequest": {
+                "LoginRequest": {
                     "type": "object",
-                    "required": ["email", "password", "password2", "first_name", "last_name", "specialty"],
+                    "required": ["password"],
                     "properties": {
                         "email": {"type": "string", "format": "email"},
-                        "password": {"type": "string"},
-                        "password2": {"type": "string"},
-                        "first_name": {"type": "string"},
-                        "last_name": {"type": "string"},
-                        "specialty": {"type": "string"}
-                    }
-                },
-                "RegisterResult": {
-                    "type": "object",
-                    "properties": {
-                        "access": {"type": "string"},
-                        "refresh": {"type": "string"},
-                        "user": {"$ref": "#/components/schemas/UserInfo"}
-                    }
-                },
-                "RegisterResponse": {
-                    "allOf": [
-                        {"$ref": "#/components/schemas/StandardResponseBase"},
-                        {
-                            "type": "object",
-                            "properties": {"result": {"$ref": "#/components/schemas/RegisterResult"}}
-                        }
-                    ]
-                },
-                "TokenObtainRequest": {
-                    "type": "object",
-                    "required": ["email", "password"],
-                    "properties": {
-                        "email": {"type": "string", "format": "email"},
+                        "username": {"type": "string"},
                         "password": {"type": "string"}
                     }
                 },
-                "TokenObtainResult": {
+                "LoginSuccess": {
                     "type": "object",
                     "properties": {
-                        "access": {"type": "string"},
-                        "refresh": {"type": "string"},
-                        "user": {"$ref": "#/components/schemas/UserInfo"}
+                        "success": {"type": "boolean"},
+                        "token": {"type": "string"},
+                        "user": {"$ref": "#/components/schemas/UserFull"}
                     }
                 },
-                "TokenObtainResponse": {
-                    "allOf": [
-                        {"$ref": "#/components/schemas/StandardResponseBase"},
-                        {
-                            "type": "object",
-                            "properties": {"result": {"$ref": "#/components/schemas/TokenObtainResult"}}
-                        }
-                    ]
-                },
-                "TokenRefreshRequest": {
+                "LoginErrorResponse": {
                     "type": "object",
-                    "required": ["refresh"],
-                    "properties": {"refresh": {"type": "string"}}
+                    "properties": {
+                        "success": {"type": "boolean"},
+                        "message": {"type": "string"}
+                    }
                 },
-                "TokenRefreshResult": {
-                    "type": "object",
-                    "properties": {"access": {"type": "string"}}
-                },
-                "TokenRefreshResponse": {
-                    "allOf": [
-                        {"$ref": "#/components/schemas/StandardResponseBase"},
-                        {
-                            "type": "object",
-                            "properties": {"result": {"$ref": "#/components/schemas/TokenRefreshResult"}}
-                        }
-                    ]
-                },
+                "LoginResponse": {"$ref": "#/components/schemas/LoginSuccess"},
                 "UserInfo": {
                     "type": "object",
                     "properties": {
@@ -453,6 +359,12 @@ def openapi_schema_view(request):
                         "last_name": {"type": "string"},
                         "specialty": {"type": "string"}
                     }
+                },
+                "UserFull": {
+                    "allOf": [
+                        {"type": "object", "properties": {"id": {"type": "integer"}}},
+                        {"$ref": "#/components/schemas/UserInfo"}
+                    ]
                 },
                 "AnswerOption": {
                     "type": "object",
