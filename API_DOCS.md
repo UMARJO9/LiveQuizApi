@@ -100,3 +100,28 @@ Authorization: Bearer <token>
 ## Где смотреть схему
 - Swagger UI: `/api/docs/`
 - JSON-схема OpenAPI: `/api/schema/` или `/openapi.json`
+
+## Обновление вопроса (PATCH /api/questions/{id}/)
+- Аутентификация: Bearer JWT
+- Content-Type: application/json
+- Обязательное поле в теле: `topic_id` (число) — для проверки принадлежности вопроса теме
+- Необязательные поля: `text`, `options` (если переданы, ровно 4 варианта, каждый с существующим `id`)
+- Валидация: среди `options` минимум один `is_correct: true`; каждый `options.id` должен принадлежать обновляемому вопросу
+
+Пример запроса:
+```
+PATCH /api/questions/3/
+Authorization: Bearer <token>
+Content-Type: application/json
+
+{
+  "topic_id": 8,
+  "text": "Какой цвет у неба?",
+  "options": [
+    { "id": 101, "text": "Синий",  "is_correct": true },
+    { "id": 102, "text": "Зелёный", "is_correct": false },
+    { "id": 103, "text": "Жёлтый",  "is_correct": false },
+    { "id": 104, "text": "Красный", "is_correct": false }
+  ]
+}
+```

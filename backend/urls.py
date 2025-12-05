@@ -26,6 +26,7 @@ from quizzes.views import (
     QuestionCreateAPIView,
     QuestionDeleteView,
     AnswerOptionDeleteView,
+    QuestionUpdateAPIView,
 )
 urlpatterns = [
     path('admin/', admin.site.urls),
@@ -42,6 +43,8 @@ urlpatterns = [
     # QUESTION CRUD
     path('api/topics/<int:topic_id>/questions/', QuestionCreateAPIView.as_view()),
     path('api/topics/<int:topic_id>/questions', QuestionCreateAPIView.as_view()),
+    path('api/questions/<int:pk>/', QuestionUpdateAPIView.as_view()),
+    path('api/questions/<int:pk>', QuestionUpdateAPIView.as_view()),
     path('api/questions/<int:pk>/delete/', QuestionDeleteView.as_view()),
     path('api/questions/<int:pk>/delete', QuestionDeleteView.as_view()),
 
@@ -311,6 +314,43 @@ def openapi_schema_view(request):
                     }
                 }
             }
+            ,
+            "/api/questions/{id}/": {
+                "patch": {
+                    "summary": "Update question",
+                    "tags": ["Questions"],
+                    "security": [{"bearerAuth": []}],
+                    "parameters": [
+                        {"name": "id", "in": "path", "required": True, "schema": {"type": "integer"}}
+                    ],
+                    "requestBody": {
+                        "required": True,
+                        "content": {
+                            "application/json": {
+                                "schema": {"$ref": "#/components/schemas/QuestionUpdateRequest"}
+                            }
+                        }
+                    },
+                    "responses": {
+                        "200": {
+                            "description": "OK",
+                            "content": {
+                                "application/json": {
+                                    "schema": {"$ref": "#/components/schemas/QuestionResponse"}
+                                }
+                            }
+                        },
+                        "403": {
+                            "description": "Forbidden",
+                            "content": {"application/json": {"schema": {"$ref": "#/components/schemas/EmptyResponse"}}}
+                        },
+                        "404": {
+                            "description": "Not Found",
+                            "content": {"application/json": {"schema": {"$ref": "#/components/schemas/EmptyResponse"}}}
+                        }
+                    }
+                }
+            }
         },
         "components": {
             "securitySchemes": {
@@ -418,6 +458,24 @@ def openapi_schema_view(request):
                     "properties": {
                         "text": {"type": "string"},
                         "options": {"type": "array", "items": {"$ref": "#/components/schemas/AnswerOptionCreate"}}
+                    }
+                },
+                "AnswerOptionUpdate": {
+                    "type": "object",
+                    "required": ["id"],
+                    "properties": {
+                        "id": {"type": "integer"},
+                        "text": {"type": "string"},
+                        "is_correct": {"type": "boolean"}
+                    }
+                },
+                "QuestionUpdateRequest": {
+                    "type": "object",
+                    "required": ["topic_id"],
+                    "properties": {
+                        "topic_id": {"type": "integer"},
+                        "text": {"type": "string"},
+                        "options": {"type": "array", "items": {"$ref": "#/components/schemas/AnswerOptionUpdate"}}
                     }
                 },
                 "TopicListResponse": {

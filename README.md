@@ -62,7 +62,8 @@ python manage.py runserver
 - Login (JWT): `POST /api/login/`
 - Refresh token: `POST /api/refresh/`
 - Quizzes: `GET/POST /api/quizzes/`, `GET/PUT/PATCH/DELETE /api/quizzes/{id}/`
-- Questions: `POST /api/quizzes/{quiz_id}/questions/`, `DELETE /api/questions/{id}/delete/`
+- Questions: `POST /api/quizzes/{quiz_id}/questions/`, `PATCH /api/questions/{id}/`, `DELETE /api/questions/{id}/delete/`
+  - Question update body requires `topic_id` and supports partial fields: `text`, `options` (4 items with existing ids)
 - Choices: `POST /api/questions/{question_id}/choices/`, `DELETE /api/choices/{id}/delete/`
 
 Docs UI: open `http://127.0.0.1:8000/api/docs/` in a browser.

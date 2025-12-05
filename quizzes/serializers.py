@@ -68,3 +68,26 @@ class TopicSerializer(serializers.ModelSerializer):
             "updated_at",
         )
         read_only_fields = ("created_at", "updated_at")
+
+
+class AnswerOptionUpdateSerializer(serializers.ModelSerializer):
+    id = serializers.IntegerField()
+
+    class Meta:
+        model = AnswerOption
+        fields = ("id", "text", "is_correct")
+
+
+class QuestionUpdatePayloadSerializer(serializers.Serializer):
+    topic_id = serializers.IntegerField(required=True)
+    text = serializers.CharField(required=False)
+    options = AnswerOptionUpdateSerializer(many=True, required=False)
+
+    def validate(self, attrs):
+        if "options" in attrs:
+            options = attrs.get("options") or []
+            if len(options) != 4:
+                raise serializers.ValidationError("Exactly four options are required.")
+            if not any(opt.get("is_correct") for opt in options):
+                raise serializers.ValidationError("At least one option must be marked as correct.")
+        return attrs

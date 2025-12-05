@@ -11,6 +11,7 @@ from .serializers import (
     QuestionCreateSerializer,
     QuestionSerializer,
     TopicSerializer,
+    QuestionUpdatePayloadSerializer,
 )
 
 
@@ -89,4 +90,55 @@ class AnswerOptionDeleteView(StandardResponseMixin, generics.DestroyAPIView):
             return Response({"message": "Answer option not found"}, status=status.HTTP_404_NOT_FOUND)
         self.perform_destroy(instance)
         return Response({"message": "Option deleted"}, status=status.HTTP_200_OK)
+
+
+class QuestionUpdateAPIView(StandardResponseMixin, APIView):
+    permission_classes = [permissions.IsAuthenticated]
+
+    def patch(self, request, pk):
+        try:
+            question = Question.objects.select_related("topic").prefetch_related("options").get(pk=pk)
+        except Question.DoesNotExist:
+            return Response({"message": "Question not found"}, status=status.HTTP_404_NOT_FOUND)
+
+        if question.topic.teacher != request.user:
+            return Response(
+                {"message": "You do not have permission to update this question."},
+                status=status.HTTP_403_FORBIDDEN,
+            )
+
+        payload = QuestionUpdatePayloadSerializer(data=request.data)
+        payload.is_valid(raise_exception=True)
+        data = payload.validated_data
+
+        # Update fields
+        # Ensure provided topic_id matches the question's topic
+        if data.get("topic_id") != question.topic_id:
+            return Response({"message": "Question not found in this topic"}, status=status.HTTP_404_NOT_FOUND)
+
+        if "text" in data:
+            question.text = data["text"]
+        if "order_index" in data:  # allow forward compatibility if sent
+            question.order_index = data["order_index"]
+        question.save()
+
+        if "options" in data:
+            # Update existing options by id; do not create/delete
+            opt_map = {o.id: o for o in question.options.all()}
+            for opt in data["options"]:
+                opt_id = opt.get("id")
+                if opt_id not in opt_map:
+                    return Response(
+                        {"message": f"Option {opt_id} does not belong to question {question.id}."},
+                        status=status.HTTP_400_BAD_REQUEST,
+                    )
+            for opt in data["options"]:
+                o = opt_map[opt["id"]]
+                if "text" in opt:
+                    o.text = opt["text"]
+                if "is_correct" in opt:
+                    o.is_correct = opt["is_correct"]
+                o.save()
+
+        return Response(QuestionSerializer(question).data, status=status.HTTP_200_OK)
 

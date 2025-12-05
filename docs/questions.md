@@ -76,19 +76,27 @@ Example (via topic detail) response snippet:
 ```
 
 ## 3. Update Question
-- Endpoint (planned): PUT `/api/questions/<id>/`
-- Body format should mirror creation with four options; `id` fields for options are optional and generally ignored by the server.
-- Note: This endpoint is not available in the current build. Use delete + recreate if you need to change a question.
+- Endpoint: PATCH `/api/questions/<id>/`
+- Auth: Bearer token
+- Content-Type: `application/json`
+- Required field in body: `topic_id` (integer) — for additional safety the server verifies the question belongs to this topic.
+- Optional fields: `text`, `options` (exactly 4 items if provided)
+- Each `options` item must include: `id` (existing option id), `text`, `is_correct`.
 
-Example request (intended):
+Validation rules:
+- If `options` provided — exactly four options, at least one with `is_correct: true`.
+- All provided `options.id` must belong to the target question.
+
+Example request (JSON):
 ```json
 {
+  "topic_id": 12,
   "text": "What does PEP 8 define? (updated)",
   "options": [
-    { "text": "Python style guide", "is_correct": true },
-    { "text": "A web framework", "is_correct": false },
-    { "text": "A package manager", "is_correct": false },
-    { "text": "A testing tool", "is_correct": false }
+    { "id": 501, "text": "Python style guide", "is_correct": true },
+    { "id": 502, "text": "A web framework", "is_correct": false },
+    { "id": 503, "text": "A package manager", "is_correct": false },
+    { "id": 504, "text": "A testing tool", "is_correct": false }
   ]
 }
 ```
@@ -106,4 +114,3 @@ Expected response (JSON):
   "result": null
 }
 ```
-
