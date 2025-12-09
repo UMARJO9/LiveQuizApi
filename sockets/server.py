@@ -194,7 +194,7 @@ async def finish_session(session_id: str) -> None:
 
 
 @sio.event
-async def connect(sid: str, environ: dict[str, Any]) -> None:
+async def connect(sid: str, environ: dict[str, Any], auth: dict[str, Any] | None = None) -> None:
     """
     Handle new socket connection.
 
@@ -204,8 +204,11 @@ async def connect(sid: str, environ: dict[str, Any]) -> None:
     Args:
         sid: Socket ID of the connected client
         environ: WSGI environ dictionary
+        auth: Authentication data sent by client (e.g., {"token": "..."})
     """
     print(f"[CONNECT] Client connected: {sid}")
+    if auth:
+        print(f"[CONNECT] Auth data received: {auth.get('token', 'N/A')[:20]}...")
 
 
 @sio.event
