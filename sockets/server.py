@@ -259,7 +259,7 @@ async def disconnect(sid: str) -> None:
 # =============================================================================
 
 
-@sio.event
+@sio.on("teacher:create_session")
 async def teacher_create_session(sid: str, data: dict[str, Any]) -> None:
     """
     Handle teacher creating a new quiz session.
@@ -318,6 +318,7 @@ async def teacher_create_session(sid: str, data: dict[str, Any]) -> None:
         "teacher:session_created",
         {
             "session_id": session["session_id"],
+            "code": session["session_id"],  # 4-char code like "AB12"
             "topic": topic_data,
             "question_count": len(question_ids),
         },
@@ -327,7 +328,7 @@ async def teacher_create_session(sid: str, data: dict[str, Any]) -> None:
     print(f"[TEACHER] Session created: {session['session_id']}")
 
 
-@sio.event
+@sio.on("teacher:start_session")
 async def teacher_start_session(sid: str, data: dict[str, Any]) -> None:
     """
     Handle teacher starting the quiz session.
@@ -388,7 +389,7 @@ async def teacher_start_session(sid: str, data: dict[str, Any]) -> None:
         await sio.emit("error", {"message": "No questions available"}, to=sid)
 
 
-@sio.event
+@sio.on("teacher:next_question")
 async def teacher_next_question(sid: str, data: dict[str, Any]) -> None:
     """
     Handle teacher requesting next question.
@@ -439,7 +440,7 @@ async def teacher_next_question(sid: str, data: dict[str, Any]) -> None:
         print(f"[TEACHER] Session {session_id} finished - no more questions")
 
 
-@sio.event
+@sio.on("teacher:finish_session")
 async def teacher_finish_session(sid: str, data: dict[str, Any]) -> None:
     """
     Handle teacher manually finishing the session.
@@ -481,7 +482,7 @@ async def teacher_finish_session(sid: str, data: dict[str, Any]) -> None:
 # =============================================================================
 
 
-@sio.event
+@sio.on("student:join")
 async def student_join(sid: str, data: dict[str, Any]) -> None:
     """
     Handle student joining a quiz session.
@@ -558,7 +559,7 @@ async def student_join(sid: str, data: dict[str, Any]) -> None:
     print(f"[STUDENT] {name} joined session {session_id}")
 
 
-@sio.event
+@sio.on("student:answer")
 async def student_answer(sid: str, data: dict[str, Any]) -> None:
     """
     Handle student submitting an answer.
@@ -649,7 +650,7 @@ async def student_answer(sid: str, data: dict[str, Any]) -> None:
         await close_question(session_id)
 
 
-@sio.event
+@sio.on("student:leave")
 async def student_leave(sid: str, data: dict[str, Any]) -> None:
     """
     Handle student leaving a quiz session.
