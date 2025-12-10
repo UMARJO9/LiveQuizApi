@@ -238,10 +238,12 @@ async def close_question(session_id: str) -> None:
         {"answered": answer_count, "total": student_count},
         to=teacher_sid
     )
-    print(f"[CLOSE_QUESTION] Sent answer_count: {answer_count}/{student_count}")
+    print(f"[CLOSE_QUESTION] Sent answer_count: {answer_count}/{student_count}", flush=True)
 
     # 2. Process each student's answer and send results
+    print(f"[CLOSE_QUESTION] Processing {student_count} students...", flush=True)
     for sid, student_data in session["students"].items():
+        print(f"[CLOSE_QUESTION] Processing student {sid}...", flush=True)
         student_answer = session["answers"].get(sid)
         correct = student_answer == correct_option_id
 
@@ -260,9 +262,11 @@ async def close_question(session_id: str) -> None:
             score_delta=score_delta,
             score_total=score_total,
         )
+        print(f"[CLOSE_QUESTION] Sending answer_result to {sid}...", flush=True)
         await sio.emit("answer_result", result, to=sid)
+        print(f"[CLOSE_QUESTION] Sent answer_result to {sid}", flush=True)
 
-    print(f"[CLOSE_QUESTION] Sent answer_result to all students")
+    print(f"[CLOSE_QUESTION] Sent answer_result to all students", flush=True)
 
     # 3. Send question closed to everyone (students room + teacher)
     await sio.emit("session:question_closed", {"question_id": question_id}, room=room)
