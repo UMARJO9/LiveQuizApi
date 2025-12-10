@@ -27,6 +27,7 @@ class SessionData(TypedDict):
     time_per_question: int
     question_queue: list[int]
     current_question: Optional[int]
+    current_correct_option: Optional[int]  # Cached correct option ID
     question_started_at: Optional[datetime]
     question_deadline: Optional[datetime]
     answers: dict[str, int]  # sid -> option_id
@@ -95,6 +96,7 @@ class SessionManager:
             "time_per_question": time_per_question,
             "question_queue": shuffled_questions,
             "current_question": None,
+            "current_correct_option": None,
             "question_started_at": None,
             "question_deadline": None,
             "answers": {},
