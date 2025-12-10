@@ -189,12 +189,11 @@ async def close_question(session_id: str) -> None:
     """
     Close the current question and process all answers.
 
-    Steps:
-        1. Fetch the correct answer from DB
-        2. For each student: award points if correct
-        3. Emit answer_result to each student
-        4. Compute and emit ranking to teacher
-        5. Clear session answers
+    Event sequence:
+        1. session:answer_count (final count) -> Teacher
+        2. answer_result -> Each student
+        3. session:question_closed -> Teacher + Students
+        4. ranking + session:ranking -> Teacher
 
     Args:
         session_id: The session ID
@@ -215,7 +214,19 @@ async def close_question(session_id: str) -> None:
     if correct_option_id is None:
         return
 
-    # Process each student's answer
+    room = SessionManager.get_room_name(session_id)
+    teacher_sid = session["teacher_sid"]
+
+    # 1. Send final answer count to teacher
+    answer_count = len(session["answers"])
+    student_count = len(session["students"])
+    await sio.emit(
+        "session:answer_count",
+        {"answered": answer_count, "total": student_count},
+        to=teacher_sid
+    )
+
+    # 2. Process each student's answer and send results
     for sid, student_data in session["students"].items():
         student_answer = session["answers"].get(sid)
         correct = student_answer == correct_option_id
@@ -237,13 +248,16 @@ async def close_question(session_id: str) -> None:
         )
         await sio.emit("answer_result", result, to=sid)
 
-    # Send ranking to teacher
-    ranking_payload = RankingManager.build_ranking_payload(session["students"])
-    await sio.emit("ranking", ranking_payload, to=session["teacher_sid"])
-
-    # Emit question closed event
-    room = SessionManager.get_room_name(session_id)
+    # 3. Send question closed to everyone (students room + teacher)
     await sio.emit("session:question_closed", {"question_id": question_id}, room=room)
+    await sio.emit("session:question_closed", {"question_id": question_id}, to=teacher_sid)
+
+    # 4. Build and send ranking to teacher (both event names for compatibility)
+    ranking_payload = RankingManager.build_ranking_payload(session["students"])
+    await sio.emit("ranking", ranking_payload, to=teacher_sid)
+    await sio.emit("session:ranking", ranking_payload, to=teacher_sid)
+
+    print(f"[QUESTION] Closed question {question_id}, ranking sent to teacher")
 
     # Clear answers and current question for next question
     SessionManager.clear_answers(session_id)
