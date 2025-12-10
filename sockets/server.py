@@ -78,6 +78,31 @@ async def question_timer_task(session_id: str, timeout: int) -> None:
         # Only close if still running and question not already closed
         if session["stage"] == "running" and session["current_question"] is not None:
             print(f"[TIMER] Time expired for session {session_id}, closing question")
+
+            # Notify everyone that time expired
+            room = SessionManager.get_room_name(session_id)
+
+            # Send to all students
+            await sio.emit(
+                "session:timer_expired",
+                {
+                    "question_id": session["current_question"],
+                    "message": "Time is up!"
+                },
+                room=room
+            )
+
+            # Send to teacher
+            await sio.emit(
+                "session:timer_expired",
+                {
+                    "question_id": session["current_question"],
+                    "message": "Time is up!"
+                },
+                to=session["teacher_sid"]
+            )
+
+            # Close question and send results
             await close_question(session_id)
 
     except asyncio.CancelledError:
