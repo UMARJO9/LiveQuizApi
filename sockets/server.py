@@ -214,7 +214,13 @@ async def close_question(session_id: str) -> None:
         return
 
     # Get correct answer
-    correct_option_id = await QuestionManager.get_correct_option_id(question_id)
+    print(f"[CLOSE_QUESTION] Getting correct option for question {question_id}...")
+    try:
+        correct_option_id = await QuestionManager.get_correct_option_id(question_id)
+    except Exception as e:
+        print(f"[CLOSE_QUESTION] ERROR getting correct_option: {e}")
+        correct_option_id = None
+
     if correct_option_id is None:
         print(f"[CLOSE_QUESTION] ERROR: correct_option_id is None for question {question_id}")
         return
