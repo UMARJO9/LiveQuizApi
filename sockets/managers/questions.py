@@ -23,7 +23,7 @@ class QuestionManager:
     POINTS_CORRECT = 20
 
     @staticmethod
-    @sync_to_async
+    @sync_to_async(thread_sensitive=False)
     def load_topic_data(topic_id: int) -> Optional[dict[str, Any]]:
         """
         Load topic data from database.
@@ -48,7 +48,7 @@ class QuestionManager:
             return None
 
     @staticmethod
-    @sync_to_async
+    @sync_to_async(thread_sensitive=False)
     def load_question_ids(topic_id: int) -> list[int]:
         """
         Load all question IDs for a topic.
@@ -68,7 +68,7 @@ class QuestionManager:
         )
 
     @staticmethod
-    @sync_to_async
+    @sync_to_async(thread_sensitive=False)
     def load_question(question_id: int) -> Optional[dict[str, Any]]:
         """
         Load a question with its options from database.
@@ -99,7 +99,7 @@ class QuestionManager:
             return None
 
     @staticmethod
-    @sync_to_async
+    @sync_to_async(thread_sensitive=False)
     def get_correct_option_id(question_id: int) -> Optional[int]:
         """
         Get the correct option ID for a question.
