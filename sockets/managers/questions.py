@@ -7,13 +7,81 @@ Handles:
 - Answer validation
 """
 
+import asyncio
 from typing import Any, Optional
 from datetime import datetime
 
-from asgiref.sync import sync_to_async
-
 from .sessions import active_sessions, SessionData
 from ..utils.time import TimeUtils
+
+
+def _get_correct_option_id_sync(question_id: int) -> Optional[int]:
+    """Synchronous function to get correct option from DB."""
+    from quizzes.models import AnswerOption
+
+    try:
+        correct_option = AnswerOption.objects.get(
+            question_id=question_id,
+            is_correct=True
+        )
+        return correct_option.id
+    except AnswerOption.DoesNotExist:
+        return None
+    except AnswerOption.MultipleObjectsReturned:
+        correct_option = AnswerOption.objects.filter(
+            question_id=question_id,
+            is_correct=True
+        ).first()
+        return correct_option.id if correct_option else None
+
+
+def _load_topic_data_sync(topic_id: int) -> Optional[dict[str, Any]]:
+    """Synchronous function to load topic data."""
+    from quizzes.models import Topic
+
+    try:
+        topic = Topic.objects.get(id=topic_id)
+        return {
+            "id": topic.id,
+            "title": topic.title,
+            "description": topic.description,
+            "time_per_question": topic.question_timer,
+        }
+    except Topic.DoesNotExist:
+        return None
+
+
+def _load_question_ids_sync(topic_id: int) -> list[int]:
+    """Synchronous function to load question IDs."""
+    from quizzes.models import Question
+
+    return list(
+        Question.objects.filter(topic_id=topic_id)
+        .order_by("order_index")
+        .values_list("id", flat=True)
+    )
+
+
+def _load_question_sync(question_id: int) -> Optional[dict[str, Any]]:
+    """Synchronous function to load question with options."""
+    from quizzes.models import Question
+
+    try:
+        question = Question.objects.prefetch_related("options").get(id=question_id)
+        options = [
+            {
+                "id": opt.id,
+                "text": opt.text,
+            }
+            for opt in question.options.all()
+        ]
+        return {
+            "id": question.id,
+            "text": question.text,
+            "options": options,
+        }
+    except Question.DoesNotExist:
+        return None
 
 
 class QuestionManager:
@@ -23,110 +91,24 @@ class QuestionManager:
     POINTS_CORRECT = 20
 
     @staticmethod
-    @sync_to_async(thread_sensitive=False)
-    def load_topic_data(topic_id: int) -> Optional[dict[str, Any]]:
-        """
-        Load topic data from database.
-
-        Args:
-            topic_id: ID of the topic
-
-        Returns:
-            Dictionary with topic data or None if not found
-        """
-        from quizzes.models import Topic
-
-        try:
-            topic = Topic.objects.get(id=topic_id)
-            return {
-                "id": topic.id,
-                "title": topic.title,
-                "description": topic.description,
-                "time_per_question": topic.question_timer,
-            }
-        except Topic.DoesNotExist:
-            return None
+    async def load_topic_data(topic_id: int) -> Optional[dict[str, Any]]:
+        """Load topic data from database."""
+        return await asyncio.to_thread(_load_topic_data_sync, topic_id)
 
     @staticmethod
-    @sync_to_async(thread_sensitive=False)
-    def load_question_ids(topic_id: int) -> list[int]:
-        """
-        Load all question IDs for a topic.
-
-        Args:
-            topic_id: ID of the topic
-
-        Returns:
-            List of question IDs
-        """
-        from quizzes.models import Question
-
-        return list(
-            Question.objects.filter(topic_id=topic_id)
-            .order_by("order_index")
-            .values_list("id", flat=True)
-        )
+    async def load_question_ids(topic_id: int) -> list[int]:
+        """Load all question IDs for a topic."""
+        return await asyncio.to_thread(_load_question_ids_sync, topic_id)
 
     @staticmethod
-    @sync_to_async(thread_sensitive=False)
-    def load_question(question_id: int) -> Optional[dict[str, Any]]:
-        """
-        Load a question with its options from database.
-
-        Args:
-            question_id: ID of the question
-
-        Returns:
-            Dictionary with question data or None if not found
-        """
-        from quizzes.models import Question
-
-        try:
-            question = Question.objects.prefetch_related("options").get(id=question_id)
-            options = [
-                {
-                    "id": opt.id,
-                    "text": opt.text,
-                }
-                for opt in question.options.all()
-            ]
-            return {
-                "id": question.id,
-                "text": question.text,
-                "options": options,
-            }
-        except Question.DoesNotExist:
-            return None
+    async def load_question(question_id: int) -> Optional[dict[str, Any]]:
+        """Load a question with its options from database."""
+        return await asyncio.to_thread(_load_question_sync, question_id)
 
     @staticmethod
-    @sync_to_async(thread_sensitive=False)
-    def get_correct_option_id(question_id: int) -> Optional[int]:
-        """
-        Get the correct option ID for a question.
-
-        Args:
-            question_id: ID of the question
-
-        Returns:
-            ID of the correct option or None if not found
-        """
-        from quizzes.models import AnswerOption
-
-        try:
-            correct_option = AnswerOption.objects.get(
-                question_id=question_id,
-                is_correct=True
-            )
-            return correct_option.id
-        except AnswerOption.DoesNotExist:
-            return None
-        except AnswerOption.MultipleObjectsReturned:
-            # If multiple correct answers, return the first one
-            correct_option = AnswerOption.objects.filter(
-                question_id=question_id,
-                is_correct=True
-            ).first()
-            return correct_option.id if correct_option else None
+    async def get_correct_option_id(question_id: int) -> Optional[int]:
+        """Get the correct option ID for a question."""
+        return await asyncio.to_thread(_get_correct_option_id_sync, question_id)
 
     @staticmethod
     def setup_question(
