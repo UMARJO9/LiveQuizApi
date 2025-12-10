@@ -102,8 +102,12 @@ async def question_timer_task(session_id: str, timeout: int) -> None:
                 to=session["teacher_sid"]
             )
 
-            # Close question and send results
-            await close_question(session_id)
+            # Close question and send results (from_timer=True to avoid self-cancellation)
+            await close_question(session_id, from_timer=True)
+
+            # Remove timer from dict after completion
+            if session_id in question_timers:
+                del question_timers[session_id]
 
     except asyncio.CancelledError:
         print(f"[TIMER] Timer cancelled for session {session_id}")
@@ -189,7 +193,7 @@ async def send_question(session_id: str, question_id: int) -> bool:
     return True
 
 
-async def close_question(session_id: str) -> None:
+async def close_question(session_id: str, from_timer: bool = False) -> None:
     """
     Close the current question and process all answers.
 
@@ -201,11 +205,13 @@ async def close_question(session_id: str) -> None:
 
     Args:
         session_id: The session ID
+        from_timer: If True, called from timer (don't cancel timer to avoid self-cancellation)
     """
-    print(f"[CLOSE_QUESTION] Starting close_question for session {session_id}")
+    print(f"[CLOSE_QUESTION] Starting close_question for session {session_id}", flush=True)
 
-    # Cancel timer if running (question closed early because all answered)
-    cancel_question_timer(session_id)
+    # Cancel timer if running (but not if we're called FROM the timer!)
+    if not from_timer:
+        cancel_question_timer(session_id)
 
     session = SessionManager.get_session(session_id)
     if not session:
