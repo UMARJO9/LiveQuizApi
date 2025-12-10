@@ -26,6 +26,7 @@ Events:
         - quiz_finished
 """
 
+import asyncio
 import socketio
 from typing import Any, Optional
 
@@ -33,6 +34,10 @@ from .managers.sessions import SessionManager, active_sessions
 from .managers.questions import QuestionManager
 from .managers.ranking import RankingManager
 from .utils.time import TimeUtils
+
+
+# Storage for active question timers
+question_timers: dict[str, asyncio.Task] = {}
 
 
 # Create AsyncServer with CORS support
@@ -53,6 +58,60 @@ socket_app = socketio.ASGIApp(
 # =============================================================================
 #                           HELPER FUNCTIONS
 # =============================================================================
+
+
+async def question_timer_task(session_id: str, timeout: int) -> None:
+    """
+    Background task that auto-closes question after timeout.
+
+    Args:
+        session_id: The session ID
+        timeout: Seconds to wait before closing
+    """
+    try:
+        await asyncio.sleep(timeout)
+
+        session = SessionManager.get_session(session_id)
+        if not session:
+            return
+
+        # Only close if still running and question not already closed
+        if session["stage"] == "running" and session["current_question"] is not None:
+            print(f"[TIMER] Time expired for session {session_id}, closing question")
+            await close_question(session_id)
+
+    except asyncio.CancelledError:
+        print(f"[TIMER] Timer cancelled for session {session_id}")
+
+
+def start_question_timer(session_id: str, timeout: int) -> None:
+    """
+    Start a timer that will auto-close the question.
+
+    Args:
+        session_id: The session ID
+        timeout: Seconds until question closes
+    """
+    # Cancel existing timer if any
+    cancel_question_timer(session_id)
+
+    # Create new timer task
+    task = asyncio.create_task(question_timer_task(session_id, timeout))
+    question_timers[session_id] = task
+    print(f"[TIMER] Started {timeout}s timer for session {session_id}")
+
+
+def cancel_question_timer(session_id: str) -> None:
+    """
+    Cancel the question timer if running.
+
+    Args:
+        session_id: The session ID
+    """
+    if session_id in question_timers:
+        question_timers[session_id].cancel()
+        del question_timers[session_id]
+        print(f"[TIMER] Cancelled timer for session {session_id}")
 
 
 async def send_question(session_id: str, question_id: int) -> bool:
@@ -95,6 +154,9 @@ async def send_question(session_id: str, question_id: int) -> bool:
     room = SessionManager.get_room_name(session_id)
     await sio.emit("session:question", payload, room=room)
 
+    # Start auto-close timer
+    start_question_timer(session_id, session["time_per_question"])
+
     return True
 
 
@@ -112,6 +174,9 @@ async def close_question(session_id: str) -> None:
     Args:
         session_id: The session ID
     """
+    # Cancel timer if running (question closed early because all answered)
+    cancel_question_timer(session_id)
+
     session = SessionManager.get_session(session_id)
     if not session:
         return
@@ -155,8 +220,9 @@ async def close_question(session_id: str) -> None:
     room = SessionManager.get_room_name(session_id)
     await sio.emit("session:question_closed", {"question_id": question_id}, room=room)
 
-    # Clear answers for next question
+    # Clear answers and current question for next question
     SessionManager.clear_answers(session_id)
+    session["current_question"] = None
 
 
 async def finish_session(session_id: str) -> None:
@@ -172,6 +238,9 @@ async def finish_session(session_id: str) -> None:
     Args:
         session_id: The session ID
     """
+    # Cancel any running timer
+    cancel_question_timer(session_id)
+
     session = SessionManager.get_session(session_id)
     if not session:
         return
