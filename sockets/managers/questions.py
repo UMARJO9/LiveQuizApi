@@ -68,17 +68,21 @@ def _load_question_sync(question_id: int) -> Optional[dict[str, Any]]:
 
     try:
         question = Question.objects.prefetch_related("options").get(id=question_id)
-        options = [
-            {
+        correct_option_id = None
+        options = []
+        for opt in question.options.all():
+            options.append({
                 "id": opt.id,
                 "text": opt.text,
-            }
-            for opt in question.options.all()
-        ]
+            })
+            if opt.is_correct:
+                correct_option_id = opt.id
+
         return {
             "id": question.id,
             "text": question.text,
             "options": options,
+            "correct_option_id": correct_option_id,
         }
     except Question.DoesNotExist:
         return None

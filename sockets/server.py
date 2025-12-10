@@ -170,7 +170,11 @@ async def send_question(session_id: str, question_id: int) -> bool:
     # Setup session state for the question
     QuestionManager.setup_question(session, question_id)
 
-    # Build and send question payload
+    # Cache correct option ID in session (so we don't need DB query on timer)
+    session["current_correct_option"] = question_data.get("correct_option_id")
+    print(f"[SEND_QUESTION] Cached correct_option_id: {session['current_correct_option']}")
+
+    # Build and send question payload (without correct_option_id!)
     payload = QuestionManager.build_question_payload(
         question_data,
         session["time_per_question"]
@@ -213,13 +217,9 @@ async def close_question(session_id: str) -> None:
         print(f"[CLOSE_QUESTION] ERROR: current_question is None")
         return
 
-    # Get correct answer
-    print(f"[CLOSE_QUESTION] Getting correct option for question {question_id}...")
-    try:
-        correct_option_id = await QuestionManager.get_correct_option_id(question_id)
-    except Exception as e:
-        print(f"[CLOSE_QUESTION] ERROR getting correct_option: {e}")
-        correct_option_id = None
+    # Get correct answer from cached session data (no DB query needed!)
+    correct_option_id = session.get("current_correct_option")
+    print(f"[CLOSE_QUESTION] Using cached correct_option_id: {correct_option_id}")
 
     if correct_option_id is None:
         print(f"[CLOSE_QUESTION] ERROR: correct_option_id is None for question {question_id}")
@@ -281,6 +281,7 @@ async def close_question(session_id: str) -> None:
     # Clear answers and current question for next question
     SessionManager.clear_answers(session_id)
     session["current_question"] = None
+    session["current_correct_option"] = None
 
     print(f"[CLOSE_QUESTION] Done!")
 
