@@ -15,7 +15,7 @@ Including another URLconf
     2. Add a URL to urlpatterns:  path('blog/', include('blog.urls'))
 """
 from django.contrib import admin
-from django.urls import path
+from django.urls import path, include
 from django.views.generic import TemplateView
 from django.views.generic.base import RedirectView
 from django.http import JsonResponse
@@ -51,6 +51,10 @@ urlpatterns = [
     # ANSWER OPTION CRUD
     path('api/options/<int:pk>/delete/', AnswerOptionDeleteView.as_view()),
     path('api/options/<int:pk>/delete', AnswerOptionDeleteView.as_view()),
+
+    # SESSIONS
+    path('api/sessions/', include('live.urls')),
+    path('api/sessions', include('live.urls')),
 ]
 
 # OpenAPI schema (JSON) and Swagger UI
