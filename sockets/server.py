@@ -33,6 +33,7 @@ from typing import Any, Optional
 from .managers.sessions import SessionManager, active_sessions
 from .managers.questions import QuestionManager
 from .managers.ranking import RankingManager
+from .managers.persistence import persist_session
 from .utils.time import TimeUtils
 
 
@@ -246,12 +247,25 @@ async def close_question(session_id: str, from_timer: bool = False) -> None:
     )
     print(f"[CLOSE_QUESTION] Sent answer_count: {answer_count}/{student_count}", flush=True)
 
+    # Record this question for persistence
+    SessionManager.record_answered_question(session_id, question_id, correct_option_id)
+
     # 2. Process each student's answer and send results
     print(f"[CLOSE_QUESTION] Processing {student_count} students...", flush=True)
     for sid, student_data in session["students"].items():
         print(f"[CLOSE_QUESTION] Processing student {sid}...", flush=True)
         student_answer = session["answers"].get(sid)
         correct = student_answer == correct_option_id
+
+        # Record answer for persistence (even if None = no answer)
+        if student_answer is not None:
+            SessionManager.record_student_answer(
+                session_id=session_id,
+                sid=sid,
+                question_id=question_id,
+                option_id=student_answer,
+                is_correct=correct,
+            )
 
         # Award points
         score_delta = QuestionManager.POINTS_CORRECT if correct else 0
@@ -305,6 +319,7 @@ async def finish_session(session_id: str) -> None:
         2. Compute final ranking
         3. Determine all winners (max score)
         4. Emit quiz_finished to all participants
+        5. Persist session to database
 
     Args:
         session_id: The session ID
@@ -326,6 +341,16 @@ async def finish_session(session_id: str) -> None:
     room = SessionManager.get_room_name(session_id)
     await sio.emit("quiz_finished", payload, room=room)
     await sio.emit("quiz_finished", payload, to=session["teacher_sid"])
+
+    # Persist session to database
+    try:
+        db_session_id = await persist_session(session)
+        if db_session_id:
+            print(f"[FINISH_SESSION] Session {session_id} persisted to DB with ID {db_session_id}")
+        else:
+            print(f"[FINISH_SESSION] Failed to persist session {session_id}")
+    except Exception as e:
+        print(f"[FINISH_SESSION] Error persisting session: {e}")
 
 
 # =============================================================================
@@ -512,8 +537,9 @@ async def teacher_start_session(sid: str, data: dict[str, Any]) -> None:
         await sio.emit("error", {"message": "No students in session"}, to=sid)
         return
 
-    # Set stage to running
+    # Set stage to running and mark start time
     SessionManager.set_stage(session_id, SessionManager.STAGE_RUNNING)
+    SessionManager.mark_session_started(session_id)
 
     # Pop and send first question
     question_id = SessionManager.pop_next_question(session_id)

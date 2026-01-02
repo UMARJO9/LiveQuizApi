@@ -655,4 +655,345 @@ All endpoints support both trailing slash and no trailing slash:
 
 ---
 
+## 2.10 Session Statistics Endpoints
+
+Эндпоинты для получения статистики по завершённым игровым сессиям. Используются для отображения истории игр, результатов студентов и аналитики.
+
+### GET /api/sessions/
+
+Получить список всех сессий текущего учителя.
+
+| Property | Value |
+|----------|-------|
+| **Authentication** | Bearer JWT |
+| **Permission** | IsAuthenticated |
+| **Handler** | `live/views.py:15` |
+
+#### Query Parameters
+
+| Parameter | Type | Required | Description |
+|-----------|------|----------|-------------|
+| status | string | No | Фильтр по статусу сессии (`waiting`, `active`, `finished`) |
+
+#### Example Request
+
+```bash
+# Получить все завершённые сессии
+curl -X GET "http://localhost:8000/api/sessions?status=finished" \
+  -H "Authorization: Bearer <token>"
+
+# Получить все сессии без фильтра
+curl -X GET "http://localhost:8000/api/sessions" \
+  -H "Authorization: Bearer <token>"
+```
+
+#### Success Response (200)
+
+```json
+{
+  "success": true,
+  "code": 200,
+  "message": "Success",
+  "result": [
+    {
+      "id": 1,
+      "code": "ABC123",
+      "topic_title": "Mathematics Quiz",
+      "finished_at": "2025-12-15T14:30:00Z",
+      "participants_count": 25,
+      "avg_score": 78.5
+    },
+    {
+      "id": 2,
+      "code": "XYZ789",
+      "topic_title": "History Quiz",
+      "finished_at": "2025-12-14T10:00:00Z",
+      "participants_count": 18,
+      "avg_score": 65.2
+    }
+  ]
+}
+```
+
+#### Response Fields
+
+| Field | Type | Description |
+|-------|------|-------------|
+| id | integer | Уникальный идентификатор сессии |
+| code | string | 6-символьный код для подключения студентов |
+| topic_title | string | Название темы/квиза |
+| finished_at | datetime | Дата и время завершения сессии (ISO 8601) |
+| participants_count | integer | Количество участников в сессии |
+| avg_score | float \| null | Средний балл всех участников (null если нет участников) |
+
+#### Business Rules
+- Возвращает только сессии где `teacher=request.user`
+- Сортировка по умолчанию (по id)
+- `avg_score` вычисляется как среднее значение `score` всех участников
+
+---
+
+### GET /api/sessions/{session_id}
+
+Получить полную информацию о конкретной сессии.
+
+| Property | Value |
+|----------|-------|
+| **Authentication** | Bearer JWT |
+| **Permission** | IsAuthenticated |
+| **Handler** | `live/views.py:38` |
+
+#### Path Parameters
+
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| session_id | integer | ID сессии |
+
+#### Example Request
+
+```bash
+curl -X GET "http://localhost:8000/api/sessions/1" \
+  -H "Authorization: Bearer <token>"
+```
+
+#### Success Response (200)
+
+```json
+{
+  "success": true,
+  "code": 200,
+  "message": "Success",
+  "result": {
+    "id": 1,
+    "code": "ABC123",
+    "topic_id": 5,
+    "topic_title": "Mathematics Quiz",
+    "teacher_email": "teacher@example.com",
+    "status": "finished",
+    "started_at": "2025-12-15T14:00:00Z",
+    "finished_at": "2025-12-15T14:30:00Z",
+    "time_per_question": 20,
+    "total_questions": 10,
+    "participants": [
+      {
+        "id": 1,
+        "student_name": "Иван Петров",
+        "score": 90,
+        "correct_answers": 9,
+        "wrong_answers": 1
+      },
+      {
+        "id": 2,
+        "student_name": "Мария Сидорова",
+        "score": 80,
+        "correct_answers": 8,
+        "wrong_answers": 2
+      }
+    ],
+    "questions": [
+      {
+        "id": 10,
+        "order": 1,
+        "text": "Сколько будет 2 + 2?",
+        "options": [
+          {"id": 40, "text": "3", "is_correct": false},
+          {"id": 41, "text": "4", "is_correct": true},
+          {"id": 42, "text": "5", "is_correct": false},
+          {"id": 43, "text": "6", "is_correct": false}
+        ],
+        "total_answers": 25,
+        "correct_count": 23,
+        "wrong_count": 2
+      }
+    ]
+  }
+}
+```
+
+#### Response Fields
+
+**Session Info:**
+
+| Field | Type | Description |
+|-------|------|-------------|
+| id | integer | Уникальный идентификатор сессии |
+| code | string | 6-символьный код сессии |
+| topic_id | integer | ID темы/квиза |
+| topic_title | string | Название темы |
+| teacher_email | string | Email учителя |
+| status | string | Статус: `waiting`, `active`, `finished` |
+| started_at | datetime | Время начала сессии |
+| finished_at | datetime | Время завершения сессии |
+| time_per_question | integer | Секунд на каждый вопрос |
+| total_questions | integer | Общее количество вопросов |
+
+**Participants Array:**
+
+| Field | Type | Description |
+|-------|------|-------------|
+| id | integer | ID участника (используется для детального просмотра) |
+| student_name | string | Имя студента |
+| score | integer | Набранные баллы (0-100) |
+| correct_answers | integer | Количество правильных ответов |
+| wrong_answers | integer | Количество неправильных ответов |
+
+**Questions Array:**
+
+| Field | Type | Description |
+|-------|------|-------------|
+| id | integer | ID вопроса |
+| order | integer | Порядковый номер вопроса в сессии (начиная с 1) |
+| text | string | Текст вопроса |
+| options | array | Варианты ответов |
+| options[].id | integer | ID варианта |
+| options[].text | string | Текст варианта |
+| options[].is_correct | boolean | Является ли правильным ответом |
+| total_answers | integer | Сколько студентов ответили на этот вопрос |
+| correct_count | integer | Сколько ответили правильно |
+| wrong_count | integer | Сколько ответили неправильно |
+
+#### Error Response (404)
+
+```json
+{
+  "success": false,
+  "code": 404,
+  "message": "Not found.",
+  "result": null
+}
+```
+
+#### Business Rules
+- Participants отсортированы по `score` (от большего к меньшему)
+- Questions отсортированы по `order`
+- Доступ только к своим сессиям
+
+---
+
+### GET /api/sessions/{session_id}/students/{student_id}
+
+Получить детальную информацию о всех ответах конкретного студента.
+
+| Property | Value |
+|----------|-------|
+| **Authentication** | Bearer JWT |
+| **Permission** | IsAuthenticated |
+| **Handler** | `live/views.py:69` |
+
+#### Path Parameters
+
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| session_id | integer | ID сессии |
+| student_id | integer | ID участника (из поля `participants[].id`) |
+
+#### Example Request
+
+```bash
+curl -X GET "http://localhost:8000/api/sessions/1/students/5" \
+  -H "Authorization: Bearer <token>"
+```
+
+#### Success Response (200)
+
+```json
+{
+  "success": true,
+  "code": 200,
+  "message": "Success",
+  "result": {
+    "id": 5,
+    "student_name": "Иван Петров",
+    "score": 90,
+    "correct_answers": 9,
+    "wrong_answers": 1,
+    "joined_at": "2025-12-15T14:01:30Z",
+    "answers": [
+      {
+        "question_id": 10,
+        "question_order": 1,
+        "question_text": "Сколько будет 2 + 2?",
+        "selected_option_id": 41,
+        "selected_option_text": "4",
+        "correct_option_id": 41,
+        "correct_option_text": "4",
+        "is_correct": true,
+        "response_time_ms": 3500
+      },
+      {
+        "question_id": 11,
+        "question_order": 2,
+        "question_text": "Столица Франции?",
+        "selected_option_id": null,
+        "selected_option_text": null,
+        "correct_option_id": 45,
+        "correct_option_text": "Париж",
+        "is_correct": false,
+        "response_time_ms": null
+      }
+    ]
+  }
+}
+```
+
+#### Response Fields
+
+**Student Info:**
+
+| Field | Type | Description |
+|-------|------|-------------|
+| id | integer | ID участника |
+| student_name | string | Имя студента |
+| score | integer | Итоговый балл |
+| correct_answers | integer | Количество правильных ответов |
+| wrong_answers | integer | Количество неправильных ответов |
+| joined_at | datetime | Когда студент присоединился к сессии |
+
+**Answers Array:**
+
+| Field | Type | Description |
+|-------|------|-------------|
+| question_id | integer | ID вопроса |
+| question_order | integer | Порядковый номер вопроса |
+| question_text | string | Текст вопроса |
+| selected_option_id | integer \| null | ID выбранного варианта (`null` если не ответил) |
+| selected_option_text | string \| null | Текст выбранного варианта (`null` если не ответил) |
+| correct_option_id | integer | ID правильного варианта |
+| correct_option_text | string | Текст правильного варианта |
+| is_correct | boolean | Правильно ли ответил студент |
+| response_time_ms | integer \| null | Время ответа в миллисекундах (`null` если не ответил) |
+
+#### Error Responses
+
+**404 - Session Not Found:**
+```json
+{
+  "message": "Session not found"
+}
+```
+
+**404 - Student Not Found:**
+```json
+{
+  "message": "Student not found in this session"
+}
+```
+
+#### Business Rules
+- `selected_option_id` и `selected_option_text` будут `null` если студент не успел ответить (timeout)
+- `response_time_ms` показывает сколько миллисекунд потребовалось студенту на ответ
+- Answers отсортированы по `question_order`
+
+---
+
+## 2.11 Session Status Values
+
+| Status | Description |
+|--------|-------------|
+| `waiting` | Сессия создана, ожидает начала игры |
+| `active` | Игра в процессе |
+| `finished` | Игра завершена |
+
+---
+
 [Next: Database Schema →](./03-database-schema.md)

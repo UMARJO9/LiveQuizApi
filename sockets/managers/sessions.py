@@ -19,6 +19,20 @@ class StudentData(TypedDict):
     score: int
 
 
+class AnswerData(TypedDict):
+    """Type definition for persisted answer data."""
+    option_id: int
+    is_correct: bool
+    answered_at: Optional[datetime]
+    response_time_ms: Optional[int]
+
+
+class QuestionData(TypedDict):
+    """Type definition for answered question data."""
+    question_id: int
+    correct_option_id: int
+
+
 class SessionData(TypedDict):
     """Type definition for session data."""
     session_id: str
@@ -30,9 +44,13 @@ class SessionData(TypedDict):
     current_correct_option: Optional[int]  # Cached correct option ID
     question_started_at: Optional[datetime]
     question_deadline: Optional[datetime]
-    answers: dict[str, int]  # sid -> option_id
+    answers: dict[str, int]  # sid -> option_id (current question only)
     students: dict[str, StudentData]  # sid -> StudentData
     stage: str  # waiting | running | finished
+    # Persistence tracking
+    started_at: Optional[datetime]
+    answered_questions: list[QuestionData]  # questions that have been answered
+    student_answers: dict[str, dict[int, AnswerData]]  # sid -> {question_id -> AnswerData}
 
 
 # Global storage for active sessions
@@ -102,6 +120,10 @@ class SessionManager:
             "answers": {},
             "students": {},
             "stage": SessionManager.STAGE_WAITING,
+            # Persistence tracking
+            "started_at": None,
+            "answered_questions": [],
+            "student_answers": {},
         }
 
         active_sessions[session_id] = session
@@ -386,6 +408,47 @@ class SessionManager:
             return 0
 
         return session["students"][sid]["score"]
+
+    @staticmethod
+    def mark_session_started(session_id: str) -> None:
+        """Mark the session as started with timestamp."""
+        session = active_sessions.get(session_id)
+        if session and session["started_at"] is None:
+            session["started_at"] = datetime.utcnow()
+
+    @staticmethod
+    def record_answered_question(session_id: str, question_id: int, correct_option_id: int) -> None:
+        """Record that a question was answered (for persistence)."""
+        session = active_sessions.get(session_id)
+        if session:
+            session["answered_questions"].append({
+                "question_id": question_id,
+                "correct_option_id": correct_option_id,
+            })
+
+    @staticmethod
+    def record_student_answer(
+        session_id: str,
+        sid: str,
+        question_id: int,
+        option_id: int,
+        is_correct: bool,
+        response_time_ms: int | None = None
+    ) -> None:
+        """Record a student's answer for persistence."""
+        session = active_sessions.get(session_id)
+        if not session:
+            return
+
+        if sid not in session["student_answers"]:
+            session["student_answers"][sid] = {}
+
+        session["student_answers"][sid][question_id] = {
+            "option_id": option_id,
+            "is_correct": is_correct,
+            "answered_at": datetime.utcnow(),
+            "response_time_ms": response_time_ms,
+        }
 
     @staticmethod
     def delete_session(session_id: str) -> bool:
