@@ -493,6 +493,64 @@ async def teacher_create_session(sid: str, data: dict[str, Any]) -> None:
     print(f"[TEACHER] Session created: {session['session_id']}")
 
 
+@sio.on("teacher:join_session")
+async def teacher_join_session(sid: str, data: dict[str, Any]) -> None:
+    """
+    Handle teacher joining/reconnecting to an existing session.
+
+    Event: teacher:join_session
+
+    This is called when teacher navigates to session page after creating it.
+    Updates teacher_sid and adds current socket to room.
+
+    Args:
+        sid: Teacher's socket ID
+        data: {session_id: str}
+    """
+    try:
+        print(f"[TEACHER] Join session request from {sid}: {data}", flush=True)
+
+        session_id = data.get("session_id")
+        if not session_id:
+            await sio.emit("error", {"message": "session_id is required"}, to=sid)
+            return
+
+        session = SessionManager.get_session(session_id)
+        if not session:
+            await sio.emit("error", {"message": "Session not found"}, to=sid)
+            return
+
+        # Update teacher_sid to current socket
+        old_sid = session["teacher_sid"]
+        session["teacher_sid"] = sid
+        print(f"[TEACHER] Updated teacher_sid: {old_sid} -> {sid}", flush=True)
+
+        # Add current socket to room
+        room = SessionManager.get_room_name(session_id)
+        await sio.enter_room(sid, room)
+        print(f"[TEACHER] Added {sid} to room {room}", flush=True)
+
+        # Send current session state
+        student_list = SessionManager.get_student_list(session_id)
+        await sio.emit(
+            "session:state",
+            {
+                "session_id": session_id,
+                "stage": session["stage"],
+                "students": student_list,
+                "current_question": session["current_question"],
+                "questions_remaining": len(session["question_queue"]),
+            },
+            to=sid
+        )
+
+        print(f"[TEACHER] Joined session {session_id}", flush=True)
+    except Exception as e:
+        print(f"[TEACHER] ERROR in join_session: {e}", flush=True)
+        import traceback
+        traceback.print_exc()
+
+
 @sio.on("teacher:start_session")
 async def teacher_start_session(sid: str, data: dict[str, Any]) -> None:
     """
